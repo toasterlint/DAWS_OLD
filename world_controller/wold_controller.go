@@ -13,6 +13,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/streadway/amqp"
+	. "github.com/toasterlint/DAWS/world_controller/dao"
+	. "github.com/toasterlint/DAWS/world_controller/models"
 )
 
 type worldQueueMessage struct {
@@ -45,6 +47,8 @@ var runTrigger bool
 var logger *log.Logger
 var controllers []controller
 var lastTime time.Time
+var settings Settings
+var dao = WorldDAO{Server: "mongo.daws.xyz", Database: "daws"}
 
 func logToConsole(message string) {
 	logger.Printf("\r\033[0K%s", message)
@@ -279,9 +283,32 @@ ReadCommand:
 }
 
 func loadConfig() {
-	lastTime = time.Now()
-	maxTriggerTime = 5000
-
+	dao.Connect()
+	settings, err := dao.LoadSettings()
+	failOnError(err, "Failed to load settings")
+	if (Settings{}) != settings {
+		logToConsole(settings.ID.String())
+	} else {
+		logToConsole("No settings loaded")
+	}
+	//if settings.ID.Valid() == false || err != nil {
+	//var settings Settings
+	//settings.CarAccidentFatalityRate = 0.0001159
+	//settings.ID = bson.NewObjectId()
+	//settings.LastTime = time.Now().String()
+	//settings.MurderRate = 0.000053
+	//settings.ViolentCrimeRate = 0.00381
+	//settings.WorldSpeed = 5000
+	//var speeds = []SpeedLimit{}
+	//var citySpeed = SpeedLimit{Location: "city", Value: 35}
+	//var noncitySpeed = SpeedLimit{Location: "noncity", Value: 70}
+	//speeds = append(speeds, citySpeed)
+	//speeds = append(speeds, noncitySpeed)
+	//settings.SpeedLimits = speeds
+	//settings.Diseases = []Disease{}
+	//err := dao.InsertSettings(settings)
+	//failOnError(err, "Failed to insert settings")
+	//}
 }
 func main() {
 	// Set some initial variables
