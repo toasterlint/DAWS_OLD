@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -30,15 +31,15 @@ type worldCityQueueMessage struct {
 }
 
 type controller struct {
-	ID    string
-	Type  string
-	Ready bool
+	ID    string `json:"id"`
+	Type  string `json:"type"`
+	Ready bool   `json:"ready"`
 }
 
 var conn *amqp.Connection
 var ch *amqp.Channel
 var worldq, worldtrafficq, worldcityq amqp.Queue
-var triggerTime int
+var maxTriggerTime int // smaller number equals faster speed
 var runTrigger bool
 var logger *log.Logger
 var controllers []controller
@@ -67,11 +68,9 @@ func connectQueues() {
 	var err error
 	conn, err = amqp.Dial("amqp://guest:guest@rabbitmq.daws.xyz:5672")
 	failOnError(err, "Failed to connect to RabbitMQ")
-	defer conn.Close()
 
 	ch, err = conn.Channel()
 	failOnError(err, "Failed to open a channel")
-	defer ch.Close()
 
 	worldq, err = ch.QueueDeclare(
 		"world_queue", //name
@@ -157,13 +156,15 @@ func processTrigger() {
 	for runTrigger {
 		// first check if all controllers are ready (and that we have any)
 		if len(controllers) == 0 {
+			logToConsole("No controllers")
+			time.Sleep(time.Second * 5)
 			continue
 		}
 		ready := true
-		for _, c := range controllers {
-			if c.Ready == false {
+		for i := range controllers {
+			if controllers[i].Ready == false {
 				ready = false
-				continue
+				break
 			}
 		}
 		if ready == false {
@@ -172,19 +173,46 @@ func processTrigger() {
 		// make sure we don't go over max speed limit
 		t := time.Now()
 		dur := t.Sub(lastTime)
-		if dur < time.Duration(triggerTime) {
-			logToConsole("Trigger Ding!")
-			cities := []string{"Orlando", "Green Bay", "Chicago", "Seattle"}
-			t := time.Now()
-			msg := &worldTrafficQueueMessage{t.Format("2006-01-02 15:04:05")}
-			triggerNext(cities, msg)
+		logToConsole("Trigger Ding!")
+		for i := range controllers {
+			controllers[i].Ready = false
 		}
+		if dur > time.Duration(maxTriggerTime)*time.Millisecond {
+			logToConsole("Warning: world processing too slow, last duration was - " + dur.String())
+		}
+		cities := []string{"Orlando", "Green Bay", "Chicago", "Seattle"}
+		msg := &worldTrafficQueueMessage{t.Format("2006-01-02 15:04:05")}
+		triggerNext(cities, msg)
+		lastTime = time.Now()
+	}
+}
+
+func processMsgs(msgs <-chan amqp.Delivery) {
+	for d := range msgs {
+		bodyString := string(d.Body[:])
+		logToConsole("Received a message: " + bodyString)
+		tempController := controller{}
+		json.Unmarshal(d.Body, &tempController)
+		found := false
+		for i := range controllers {
+			if controllers[i].ID == tempController.ID {
+				found = true
+				controllers[i].Ready = tempController.Ready
+				break
+			}
+		}
+		logToConsole("Controller found stats: " + strconv.FormatBool(found))
+		if found == false {
+			controllers = append(controllers, tempController)
+		}
+		logToConsole("Done")
+		d.Ack(false)
 	}
 }
 
 func main() {
 	// Set some initial variables
-	triggerTime = 5000
+	maxTriggerTime = 5000
 	runTrigger = true
 	logger = log.New(os.Stdout, "", 0)
 	logger.SetPrefix("")
@@ -192,6 +220,8 @@ func main() {
 
 	//init rabbit
 	connectQueues()
+	defer conn.Close()
+	defer ch.Close()
 
 	err := ch.Qos(
 		1,     //prefetch count
@@ -210,6 +240,8 @@ func main() {
 	)
 	failOnError(err, "Failed to register a consumer")
 
+	go processMsgs(msgs)
+
 	// Start Web Server
 	go startHTTPServer()
 
@@ -219,25 +251,7 @@ func main() {
 	forever := make(chan bool)
 
 	go func() {
-		for d := range msgs {
-			bodyString := string(d.Body[:])
-			logToConsole("Received a message: " + bodyString)
-			tempController := controller{}
-			json.Unmarshal(d.Body, &tempController)
-			found := false
-			for _, c := range controllers {
-				if tempController.ID == c.ID {
-					found = true
-					c.Ready = tempController.Ready
-					break
-				}
-			}
-			if found == false {
-				controllers = append(controllers, tempController)
-			}
-			logToConsole("Done")
-			d.Ack(false)
-		}
+
 	}()
 
 	go func() {
@@ -252,10 +266,28 @@ func main() {
 			failOnError(err, "Failed to purge World City Queue")
 			_, err = ch.QueuePurge(worldtrafficq.Name, false)
 			failOnError(err, "Failed to purge World Traffic Queue")
+			_, err = ch.QueuePurge(worldq.Name, false)
+			failOnError(err, "Failed to purge World Queue")
 			logger.Println("Exiting...")
 			os.Exit(0)
 		case "status":
-			logger.Println("Running...")
+			if runTrigger {
+				logger.Println("Running...")
+			} else {
+				logger.Println("Stopped...")
+			}
+
+			tcontrollers := 0
+			ccontrollers := 0
+			for i := range controllers {
+				if controllers[i].Type == "traffic" {
+					tcontrollers++
+				} else {
+					ccontrollers++
+				}
+			}
+			logger.Printf("Traffic Controllers: %d", tcontrollers)
+			logger.Printf("City Controllers: %d", ccontrollers)
 		case "help":
 			fallthrough
 		default:
