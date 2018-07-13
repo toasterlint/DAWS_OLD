@@ -236,6 +236,54 @@ func loadConfig() {
 
 }
 
+func runConsole() {
+	// setup terminal
+	reader := bufio.NewReader(os.Stdin)
+ReadCommand:
+	logger.Print("Command: ")
+	text, _ := reader.ReadString('\n')
+	text = strings.Trim(text, "\n")
+	switch text {
+	case "exit":
+		logger.Print("Purging queues")
+		_, err := ch.QueuePurge(worldcityq.Name, false)
+		failOnError(err, "Failed to purge World City Queue")
+		_, err = ch.QueuePurge(worldtrafficq.Name, false)
+		failOnError(err, "Failed to purge World Traffic Queue")
+		_, err = ch.QueuePurge(worldq.Name, false)
+		failOnError(err, "Failed to purge World Queue")
+		logger.Println("Exiting...")
+		os.Exit(0)
+	case "status":
+		if runTrigger {
+			logger.Println("Running...")
+		} else {
+			logger.Println("Stopped...")
+		}
+
+		tcontrollers := 0
+		ccontrollers := 0
+		for i := range controllers {
+			if controllers[i].Type == "traffic" {
+				tcontrollers++
+			} else {
+				ccontrollers++
+			}
+		}
+		logger.Printf("Traffic Controllers: %d", tcontrollers)
+		logger.Printf("City Controllers: %d", ccontrollers)
+		logger.Printf("Current Real Time: %s", time.Now().Format("2006-01-02 15:04:05"))
+		logger.Printf("Current Simulated Time: %s", lastTime.Format("2006-01-02 15:04:05"))
+	case "help":
+		fallthrough
+	default:
+		logger.Println("Help: ")
+		logger.Println("   status - Check the status of the world")
+		logger.Println("   exit - Exit the App")
+	}
+	goto ReadCommand
+}
+
 func main() {
 	// Set some initial variables
 	loadConfig()
@@ -253,64 +301,14 @@ func main() {
 	// Start Web Server
 	go startHTTPServer()
 
-	// setup terminal
-	reader := bufio.NewReader(os.Stdin)
-
-	forever := make(chan bool)
-
-	go func() {
-
-	}()
-
-	go func() {
-	ReadCommand:
-		logger.Print("Command: ")
-		text, _ := reader.ReadString('\n')
-		text = strings.Trim(text, "\n")
-		switch text {
-		case "exit":
-			logger.Print("Purging queues")
-			_, err := ch.QueuePurge(worldcityq.Name, false)
-			failOnError(err, "Failed to purge World City Queue")
-			_, err = ch.QueuePurge(worldtrafficq.Name, false)
-			failOnError(err, "Failed to purge World Traffic Queue")
-			_, err = ch.QueuePurge(worldq.Name, false)
-			failOnError(err, "Failed to purge World Queue")
-			logger.Println("Exiting...")
-			os.Exit(0)
-		case "status":
-			if runTrigger {
-				logger.Println("Running...")
-			} else {
-				logger.Println("Stopped...")
-			}
-
-			tcontrollers := 0
-			ccontrollers := 0
-			for i := range controllers {
-				if controllers[i].Type == "traffic" {
-					tcontrollers++
-				} else {
-					ccontrollers++
-				}
-			}
-			logger.Printf("Traffic Controllers: %d", tcontrollers)
-			logger.Printf("City Controllers: %d", ccontrollers)
-			logger.Printf("Current Real Time: %s", time.Now().Format("2006-01-02 15:04:05"))
-			logger.Printf("Current Simulated Time: %s", lastTime.Format("2006-01-02 15:04:05"))
-		case "help":
-			fallthrough
-		default:
-			logger.Println("Help: ")
-			logger.Println("   status - Check the status of the world")
-			logger.Println("   exit - Exit the App")
-		}
-		goto ReadCommand
-	}()
+	// Start Console
+	go runConsole()
 
 	// TEMP: Start trigger
 	go processTrigger()
 
+	// Loop main thread
+	forever := make(chan bool)
 	<-forever
 
 	logger.Println("done")
