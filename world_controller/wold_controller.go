@@ -230,12 +230,6 @@ func processMsgs() {
 	}
 }
 
-func loadConfig() {
-	lastTime = time.Now()
-	maxTriggerTime = 5000
-
-}
-
 func runConsole() {
 	// setup terminal
 	reader := bufio.NewReader(os.Stdin)
@@ -284,6 +278,11 @@ ReadCommand:
 	goto ReadCommand
 }
 
+func loadConfig() {
+	lastTime = time.Now()
+	maxTriggerTime = 5000
+
+}
 func main() {
 	// Set some initial variables
 	loadConfig()
