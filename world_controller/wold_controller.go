@@ -39,10 +39,12 @@ type controller struct {
 var conn *amqp.Connection
 var ch *amqp.Channel
 var worldq, worldtrafficq, worldcityq amqp.Queue
+var msgs <-chan amqp.Delivery
 var maxTriggerTime int // smaller number equals faster speed
 var runTrigger bool
 var logger *log.Logger
 var controllers []controller
+var lastTime time.Time
 
 func logToConsole(message string) {
 	logger.Printf("\r\033[0K%s", message)
@@ -105,6 +107,23 @@ func connectQueues() {
 	failOnError(err, "Failed to declare queue")
 
 	logger.Printf("World City Queue Consumers: %d", worldcityq.Consumers)
+
+	err = ch.Qos(
+		1,     //prefetch count
+		0,     //prefetch size
+		false, //global
+	)
+
+	msgs, err = ch.Consume(
+		worldq.Name, //queue
+		"",          //consumer
+		false,       //auto-ack
+		false,       //exclusive
+		false,       //no-local
+		false,       //no-wait
+		nil,         //args
+	)
+	failOnError(err, "Failed to register a consumer")
 }
 
 func apiStatus(w http.ResponseWriter, r *http.Request) {
@@ -152,7 +171,7 @@ func triggerNext(cities []string, worldtrafficmessage *worldTrafficQueueMessage)
 }
 
 func processTrigger() {
-	lastTime := time.Now()
+	realLastTime := time.Now()
 	for runTrigger {
 		// first check if all controllers are ready (and that we have any)
 		if len(controllers) == 0 {
@@ -172,7 +191,7 @@ func processTrigger() {
 		}
 		// make sure we don't go over max speed limit
 		t := time.Now()
-		dur := t.Sub(lastTime)
+		dur := t.Sub(realLastTime)
 		logToConsole("Trigger Ding!")
 		for i := range controllers {
 			controllers[i].Ready = false
@@ -181,13 +200,14 @@ func processTrigger() {
 			logToConsole("Warning: world processing too slow, last duration was - " + dur.String())
 		}
 		cities := []string{"Orlando", "Green Bay", "Chicago", "Seattle"}
-		msg := &worldTrafficQueueMessage{t.Format("2006-01-02 15:04:05")}
+		msg := &worldTrafficQueueMessage{lastTime.Format("2006-01-02 15:04:05")}
 		triggerNext(cities, msg)
-		lastTime = time.Now()
+		lastTime = lastTime.Add(time.Second * 1)
+		realLastTime = time.Now()
 	}
 }
 
-func processMsgs(msgs <-chan amqp.Delivery) {
+func processMsgs() {
 	for d := range msgs {
 		bodyString := string(d.Body[:])
 		logToConsole("Received a message: " + bodyString)
@@ -210,37 +230,25 @@ func processMsgs(msgs <-chan amqp.Delivery) {
 	}
 }
 
+func loadConfig() {
+	lastTime = time.Now()
+	maxTriggerTime = 5000
+
+}
+
 func main() {
 	// Set some initial variables
-	maxTriggerTime = 5000
-	runTrigger = true
+	loadConfig()
 	logger = log.New(os.Stdout, "", 0)
 	logger.SetPrefix("")
+	runTrigger = true
 	controllers = []controller{}
 
 	//init rabbit
 	connectQueues()
 	defer conn.Close()
 	defer ch.Close()
-
-	err := ch.Qos(
-		1,     //prefetch count
-		0,     //prefetch size
-		false, //global
-	)
-
-	msgs, err := ch.Consume(
-		worldq.Name, //queue
-		"",          //consumer
-		false,       //auto-ack
-		false,       //exclusive
-		false,       //no-local
-		false,       //no-wait
-		nil,         //args
-	)
-	failOnError(err, "Failed to register a consumer")
-
-	go processMsgs(msgs)
+	go processMsgs()
 
 	// Start Web Server
 	go startHTTPServer()
@@ -288,6 +296,8 @@ func main() {
 			}
 			logger.Printf("Traffic Controllers: %d", tcontrollers)
 			logger.Printf("City Controllers: %d", ccontrollers)
+			logger.Printf("Current Real Time: %s", time.Now().Format("2006-01-02 15:04:05"))
+			logger.Printf("Current Simulated Time: %s", lastTime.Format("2006-01-02 15:04:05"))
 		case "help":
 			fallthrough
 		default:
