@@ -15,6 +15,7 @@ import (
 	"github.com/streadway/amqp"
 	. "github.com/toasterlint/DAWS/world_controller/dao"
 	. "github.com/toasterlint/DAWS/world_controller/models"
+	"gopkg.in/mgo.v2/bson"
 )
 
 type worldQueueMessage struct {
@@ -48,7 +49,7 @@ var logger *log.Logger
 var controllers []controller
 var lastTime time.Time
 var settings Settings
-var dao = WorldDAO{Server: "mongo.daws.xyz", Database: "daws"}
+var dao = WorldDAO{Server: "mongo.daws.xyz", Database: "daws", Username: "daws", Password: "daws"}
 
 func logToConsole(message string) {
 	logger.Printf("\r\033[0K%s", message)
@@ -250,6 +251,9 @@ ReadCommand:
 		failOnError(err, "Failed to purge World Traffic Queue")
 		_, err = ch.QueuePurge(worldq.Name, false)
 		failOnError(err, "Failed to purge World Queue")
+		logger.Println("Saving settings...")
+		err = dao.SaveSettings(settings)
+		failOnError(err, "Failed to save settings")
 		logger.Println("Exiting...")
 		os.Exit(0)
 	case "status":
@@ -284,37 +288,37 @@ ReadCommand:
 
 func loadConfig() {
 	dao.Connect()
-	settings, err := dao.LoadSettings()
+	var err error
+	settings, err = dao.LoadSettings()
 	failOnError(err, "Failed to load settings")
-	if (Settings{}) != settings {
-		logToConsole(settings.ID.String())
+	if settings.ID.Valid() {
+		sett, _ := json.Marshal(settings)
+		logToConsole(string(sett))
 	} else {
-		logToConsole("No settings loaded")
+		logToConsole("No settings found, creating defaults")
+		var tempSettings Settings
+		tempSettings.CarAccidentFatalityRate = 0.0001159
+		tempSettings.ID = bson.NewObjectId()
+		tempSettings.LastTime = time.Now().Format("2006-01-02 15:04:05")
+		tempSettings.MurderRate = 0.000053
+		tempSettings.ViolentCrimeRate = 0.00381
+		tempSettings.WorldSpeed = 5000
+		var speeds = []SpeedLimit{}
+		var citySpeed = SpeedLimit{Location: "city", Value: 35}
+		var noncitySpeed = SpeedLimit{Location: "noncity", Value: 70}
+		speeds = append(speeds, citySpeed)
+		speeds = append(speeds, noncitySpeed)
+		tempSettings.SpeedLimits = speeds
+		tempSettings.Diseases = []Disease{}
+		err := dao.InsertSettings(tempSettings)
+		failOnError(err, "Failed to insert settings")
 	}
-	//if settings.ID.Valid() == false || err != nil {
-	//var settings Settings
-	//settings.CarAccidentFatalityRate = 0.0001159
-	//settings.ID = bson.NewObjectId()
-	//settings.LastTime = time.Now().String()
-	//settings.MurderRate = 0.000053
-	//settings.ViolentCrimeRate = 0.00381
-	//settings.WorldSpeed = 5000
-	//var speeds = []SpeedLimit{}
-	//var citySpeed = SpeedLimit{Location: "city", Value: 35}
-	//var noncitySpeed = SpeedLimit{Location: "noncity", Value: 70}
-	//speeds = append(speeds, citySpeed)
-	//speeds = append(speeds, noncitySpeed)
-	//settings.SpeedLimits = speeds
-	//settings.Diseases = []Disease{}
-	//err := dao.InsertSettings(settings)
-	//failOnError(err, "Failed to insert settings")
-	//}
 }
 func main() {
 	// Set some initial variables
-	loadConfig()
 	logger = log.New(os.Stdout, "", 0)
 	logger.SetPrefix("")
+	loadConfig()
 	runTrigger = true
 	controllers = []controller{}
 

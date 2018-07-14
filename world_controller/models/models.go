@@ -29,7 +29,7 @@ type SpeedLimit struct {
 
 // Settings settings for the world
 type Settings struct {
-	ID                      bson.ObjectId `json:"id" bson:"_id"`
+	ID                      bson.ObjectId `json:"id" bson:"_id,omitempty"`
 	ViolentCrimeRate        float32       `json:"violentCrimeRate" bson:"violentCrimeRate"`
 	MurderRate              float32       `json:"murderRate" bson:"murderRate"`
 	CarAccidentFatalityRate float32       `json:"carAccidentFatalityRate" bson:"carAccidentFatalityRate"`

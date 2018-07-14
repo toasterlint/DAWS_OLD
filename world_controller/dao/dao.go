@@ -3,6 +3,7 @@ package dao
 import (
 	"fmt"
 	"log"
+	"time"
 
 	. "github.com/toasterlint/DAWS/world_controller/models"
 	mgo "gopkg.in/mgo.v2"
@@ -12,6 +13,8 @@ import (
 type WorldDAO struct {
 	Server   string
 	Database string
+	Username string
+	Password string
 }
 
 var db *mgo.Database
@@ -29,7 +32,14 @@ func failOnError(err error, msg string) {
 
 // Connect to DB
 func (m *WorldDAO) Connect() {
-	session, err := mgo.Dial(m.Server)
+	info := &mgo.DialInfo{
+		Addrs:    []string{m.Server},
+		Timeout:  60 * time.Second,
+		Database: m.Database,
+		Username: m.Username,
+		Password: m.Password,
+	}
+	session, err := mgo.DialWithInfo(info)
 	failOnError(err, "Failed to connect to MongoDB")
 	db = session.DB(m.Database)
 }
@@ -44,9 +54,8 @@ func (m *WorldDAO) LoadSettings() (Settings, error) {
 	err := db.C(COLLECTION).Find(bson.M{}).All(&settings)
 	if len(settings) > 0 {
 		return settings[0], err
-	} else {
-		return Settings{}, err
 	}
+	return Settings{}, err
 }
 
 func (m *WorldDAO) InsertSettings(settings Settings) error {
