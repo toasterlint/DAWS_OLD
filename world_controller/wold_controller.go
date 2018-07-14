@@ -25,7 +25,8 @@ type worldQueueMessage struct {
 }
 
 type worldTrafficQueueMessage struct {
-	Datetime string `json:"datetime"`
+	WorldSettings Settings `json:"worldSettings"`
+	Datetime      string   `json:"datetime"`
 }
 
 type worldCityQueueMessage struct {
@@ -138,8 +139,7 @@ func apiStatus(w http.ResponseWriter, r *http.Request) {
 
 func apiTrigger(w http.ResponseWriter, r *http.Request) {
 	cities := []string{"Orlando", "Green Bay", "Chicago", "Seattle"}
-	t := time.Now()
-	msg := &worldTrafficQueueMessage{t.Format("2006-01-02 15:04:05")}
+	msg := &worldTrafficQueueMessage{WorldSettings: settings, Datetime: lastTime.Format("2006-01-02 15:04:05")}
 	triggerNext(cities, msg)
 	logToConsole("Manually Trigger")
 	w.Write([]byte("Manually triggered"))
@@ -205,7 +205,7 @@ func processTrigger() {
 			logToConsole("Warning: world processing too slow, last duration was - " + dur.String())
 		}
 		cities := []string{"Orlando", "Green Bay", "Chicago", "Seattle"}
-		msg := &worldTrafficQueueMessage{lastTime.Format("2006-01-02 15:04:05")}
+		msg := &worldTrafficQueueMessage{WorldSettings: settings, Datetime: lastTime.Format("2006-01-02 15:04:05")}
 		triggerNext(cities, msg)
 		lastTime = lastTime.Add(time.Second * 1)
 		realLastTime = time.Now()
