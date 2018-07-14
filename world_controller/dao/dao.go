@@ -10,6 +10,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
+// WorldDAO Data Access Object
 type WorldDAO struct {
 	Server   string
 	Database string
@@ -20,6 +21,7 @@ type WorldDAO struct {
 var db *mgo.Database
 
 const (
+	// COLLECTION collection to use in DB
 	COLLECTION = "settings"
 )
 
@@ -44,11 +46,13 @@ func (m *WorldDAO) Connect() {
 	db = session.DB(m.Database)
 }
 
+// SaveSettings save settings to DB
 func (m *WorldDAO) SaveSettings(settings Settings) error {
 	err := db.C(COLLECTION).UpdateId(settings.ID, &settings)
 	return err
 }
 
+// LoadSettings load settings from DB
 func (m *WorldDAO) LoadSettings() (Settings, error) {
 	var settings []Settings
 	err := db.C(COLLECTION).Find(bson.M{}).All(&settings)
@@ -58,6 +62,7 @@ func (m *WorldDAO) LoadSettings() (Settings, error) {
 	return Settings{}, err
 }
 
+// InsertSettings create settings in DB
 func (m *WorldDAO) InsertSettings(settings Settings) error {
 	err := db.C(COLLECTION).Insert(&settings)
 	return err
