@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	. "github.com/toasterlint/DAWS/world_controller/models"
+	worldModels "github.com/toasterlint/DAWS/world_controller/models"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -47,23 +47,23 @@ func (m *WorldDAO) Connect() {
 }
 
 // SaveSettings save settings to DB
-func (m *WorldDAO) SaveSettings(settings Settings) error {
+func (m *WorldDAO) SaveSettings(settings worldModels.Settings) error {
 	err := db.C(COLLECTION).UpdateId(settings.ID, &settings)
 	return err
 }
 
 // LoadSettings load settings from DB
-func (m *WorldDAO) LoadSettings() (Settings, error) {
-	var settings []Settings
+func (m *WorldDAO) LoadSettings() (worldModels.Settings, error) {
+	var settings []worldModels.Settings
 	err := db.C(COLLECTION).Find(bson.M{}).All(&settings)
 	if len(settings) > 0 {
 		return settings[0], err
 	}
-	return Settings{}, err
+	return worldModels.Settings{}, err
 }
 
 // InsertSettings create settings in DB
-func (m *WorldDAO) InsertSettings(settings Settings) error {
+func (m *WorldDAO) InsertSettings(settings worldModels.Settings) error {
 	err := db.C(COLLECTION).Insert(&settings)
 	return err
 }

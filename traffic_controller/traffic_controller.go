@@ -5,7 +5,10 @@ import (
 	"log"
 
 	"github.com/streadway/amqp"
+	worldModels "github.com/toasterlint/DAWS/world_controller/models"
 )
+
+var speedLimits []worldModels.SpeedLimit
 
 func failOnError(err error, msg string) {
 	if err != nil {
