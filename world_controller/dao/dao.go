@@ -1,10 +1,9 @@
 package dao
 
 import (
-	"fmt"
-	"log"
 	"time"
 
+	. "github.com/toasterlint/DAWS/common"
 	worldModels "github.com/toasterlint/DAWS/world_controller/models"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -25,13 +24,6 @@ const (
 	COLLECTION = "settings"
 )
 
-func failOnError(err error, msg string) {
-	if err != nil {
-		log.Fatalf("%s: %s", msg, err)
-		panic(fmt.Sprintf("%s: %s", msg, err))
-	}
-}
-
 // Connect to DB
 func (m *WorldDAO) Connect() {
 	info := &mgo.DialInfo{
@@ -42,7 +34,7 @@ func (m *WorldDAO) Connect() {
 		Password: m.Password,
 	}
 	session, err := mgo.DialWithInfo(info)
-	failOnError(err, "Failed to connect to MongoDB")
+	FailOnError(err, "Failed to connect to MongoDB")
 	db = session.DB(m.Database)
 }
 

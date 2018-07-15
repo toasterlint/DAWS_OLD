@@ -12,7 +12,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/streadway/amqp"
-	"github.com/toasterlint/DAWS/common/utils"
+	. "github.com/toasterlint/DAWS/common"
 	. "github.com/toasterlint/DAWS/world_controller/dao"
 	. "github.com/toasterlint/DAWS/world_controller/models"
 	"gopkg.in/mgo.v2/bson"
@@ -53,7 +53,7 @@ func connectQueues() {
 		false,         // no-wait
 		nil,           // arguments
 	)
-	failOnError(err, "Failed to declare queue")
+	FailOnError(err, "Failed to declare queue")
 
 	worldtrafficq, err = ch.QueueDeclare(
 		"world_traffic_queue", //name
@@ -63,7 +63,7 @@ func connectQueues() {
 		false, // no-wait
 		nil,   // arguments
 	)
-	failOnError(err, "Failed to declare queue")
+	FailOnError(err, "Failed to declare queue")
 
 	Logger.Printf("World Traffic Queue Consumers: %d", worldtrafficq.Consumers)
 
@@ -75,7 +75,7 @@ func connectQueues() {
 		false,              // no-wait
 		nil,                // arguments
 	)
-	failOnError(err, "Failed to declare queue")
+	FailOnError(err, "Failed to declare queue")
 
 	Logger.Printf("World City Queue Consumers: %d", worldcityq.Consumers)
 
@@ -94,11 +94,11 @@ func connectQueues() {
 		false,       //no-wait
 		nil,         //args
 	)
-	failOnError(err, "Failed to register a consumer")
+	FailOnError(err, "Failed to register a consumer")
 }
 
 func apiStatus(w http.ResponseWriter, r *http.Request) {
-	logToConsole("API Call made: status")
+	LogToConsole("API Call made: status")
 	w.Write([]byte("API Call made: status"))
 }
 
@@ -106,7 +106,7 @@ func apiTrigger(w http.ResponseWriter, r *http.Request) {
 	cities := []string{"Orlando", "Green Bay", "Chicago", "Seattle"}
 	msg := &WorldTrafficQueueMessage{WorldSettings: settings, Datetime: lastTime.Format("2006-01-02 15:04:05")}
 	triggerNext(cities, msg)
-	logToConsole("Manually Trigger")
+	LogToConsole("Manually Trigger")
 	w.Write([]byte("Manually triggered"))
 }
 
@@ -122,7 +122,7 @@ func triggerNext(cities []string, worldtrafficmessage *WorldTrafficQueueMessage)
 			ContentType:  "application/json",
 			Body:         []byte(tempMsgJSON),
 		})
-	failOnError(err, "Failed to post to World Traffic Queue")
+	FailOnError(err, "Failed to post to World Traffic Queue")
 	for _, element := range cities {
 		tempMsg := &WorldCityQueueMessage{City: element, Datetime: worldtrafficmessage.Datetime}
 		tempMsgJSON, _ := json.Marshal(tempMsg)
@@ -136,7 +136,7 @@ func triggerNext(cities []string, worldtrafficmessage *WorldTrafficQueueMessage)
 				ContentType:  "application/json",
 				Body:         []byte(tempMsgJSON),
 			})
-		failOnError(err, "Failed to post to World Traffic Queue")
+		FailOnError(err, "Failed to post to World Traffic Queue")
 	}
 }
 
@@ -145,7 +145,7 @@ func processTrigger() {
 	for runTrigger {
 		// first check if all controllers are ready (and that we have any)
 		if len(controllers) == 0 {
-			logToConsole("No controllers")
+			LogToConsole("No controllers")
 			time.Sleep(time.Second * 5)
 			continue
 		}
@@ -162,12 +162,12 @@ func processTrigger() {
 		// make sure we don't go over max speed limit
 		t := time.Now()
 		dur := t.Sub(realLastTime)
-		logToConsole("Trigger Ding!")
+		LogToConsole("Trigger Ding!")
 		for i := range controllers {
 			controllers[i].Ready = false
 		}
 		if dur > time.Duration(maxTriggerTime)*time.Millisecond {
-			logToConsole("Warning: world processing too slow, last duration was - " + dur.String())
+			LogToConsole("Warning: world processing too slow, last duration was - " + dur.String())
 		}
 		cities := []string{"Orlando", "Green Bay", "Chicago", "Seattle"}
 		msg := &WorldTrafficQueueMessage{WorldSettings: settings, Datetime: lastTime.Format("2006-01-02 15:04:05")}
@@ -180,7 +180,7 @@ func processTrigger() {
 func processMsgs() {
 	for d := range msgs {
 		bodyString := string(d.Body[:])
-		logToConsole("Received a message: " + bodyString)
+		LogToConsole("Received a message: " + bodyString)
 		tempController := Controller{}
 		json.Unmarshal(d.Body, &tempController)
 		found := false
@@ -191,11 +191,11 @@ func processMsgs() {
 				break
 			}
 		}
-		logToConsole("Controller found stats: " + strconv.FormatBool(found))
+		LogToConsole("Controller found stats: " + strconv.FormatBool(found))
 		if found == false {
 			controllers = append(controllers, tempController)
 		}
-		logToConsole("Done")
+		LogToConsole("Done")
 		d.Ack(false)
 	}
 }
@@ -211,14 +211,14 @@ ReadCommand:
 	case "exit":
 		Logger.Print("Purging queues")
 		_, err := ch.QueuePurge(worldcityq.Name, false)
-		failOnError(err, "Failed to purge World City Queue")
+		FailOnError(err, "Failed to purge World City Queue")
 		_, err = ch.QueuePurge(worldtrafficq.Name, false)
-		failOnError(err, "Failed to purge World Traffic Queue")
+		FailOnError(err, "Failed to purge World Traffic Queue")
 		_, err = ch.QueuePurge(worldq.Name, false)
-		failOnError(err, "Failed to purge World Queue")
+		FailOnError(err, "Failed to purge World Queue")
 		Logger.Println("Saving settings...")
 		err = dao.SaveSettings(settings)
-		failOnError(err, "Failed to save settings")
+		FailOnError(err, "Failed to save settings")
 		Logger.Println("Exiting...")
 		os.Exit(0)
 	case "status":
@@ -255,12 +255,12 @@ func loadConfig() {
 	dao.Connect()
 	var err error
 	settings, err = dao.LoadSettings()
-	failOnError(err, "Failed to load settings")
+	FailOnError(err, "Failed to load settings")
 	if settings.ID.Valid() {
 		sett, _ := json.Marshal(settings)
-		logToConsole(string(sett))
+		LogToConsole(string(sett))
 	} else {
-		logToConsole("No settings found, creating defaults")
+		LogToConsole("No settings found, creating defaults")
 		var tempSettings Settings
 		tempSettings.CarAccidentFatalityRate = 0.0001159
 		tempSettings.ID = bson.NewObjectId()
@@ -276,12 +276,12 @@ func loadConfig() {
 		tempSettings.SpeedLimits = speeds
 		tempSettings.Diseases = []Disease{}
 		err := dao.InsertSettings(tempSettings)
-		failOnError(err, "Failed to insert settings")
+		FailOnError(err, "Failed to insert settings")
 	}
 }
 func main() {
 	// Set some initial variables
-	utils.Init()
+	InitLogger()
 	loadConfig()
 	runTrigger = true
 	controllers = []Controller{}
