@@ -40,24 +40,30 @@ type Settings struct {
 	SpeedLimits             []SpeedLimit  `json:"speedLimits" bson:"speedLimits"`
 }
 
+// WorldQueueMessage Messages sent to World Queue
 type WorldQueueMessage struct {
 	Controller string `json:"controller"`
 	Status     string `json:"status"`
 	Detail     string `json:"detail"`
 }
 
+// WorldTrafficQueueMessage Messages sent to World Traffic Queue
 type WorldTrafficQueueMessage struct {
 	WorldSettings Settings `json:"worldSettings"`
 	Datetime      string   `json:"datetime"`
 }
 
+// WorldCityQueueMessage Messages sent to World City Queue
 type WorldCityQueueMessage struct {
-	City     string `json:"city"`
-	Datetime string `json:"datetime"`
+	WorldSettings Settings `json:"worldSettings"`
+	City          string   `json:"city"`
+	Datetime      string   `json:"datetime"`
 }
 
+// Controller a controller
 type Controller struct {
 	ID    string `json:"id"`
 	Type  string `json:"type"`
 	Ready bool   `json:"ready"`
+	Exit  bool   `json:"exit"`
 }

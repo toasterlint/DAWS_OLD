@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -124,7 +123,7 @@ func triggerNext(cities []string, worldtrafficmessage *WorldTrafficQueueMessage)
 		})
 	FailOnError(err, "Failed to post to World Traffic Queue")
 	for _, element := range cities {
-		tempMsg := &WorldCityQueueMessage{City: element, Datetime: worldtrafficmessage.Datetime}
+		tempMsg := &WorldCityQueueMessage{WorldSettings: settings, City: element, Datetime: worldtrafficmessage.Datetime}
 		tempMsgJSON, _ := json.Marshal(tempMsg)
 		err := ch.Publish(
 			"",              // exchange
@@ -149,14 +148,29 @@ func processTrigger() {
 			time.Sleep(time.Second * 5)
 			continue
 		}
-		ready := true
+		readyt := true
+		readyc := true
+		totalt := 0
+		totalc := 0
 		for i := range controllers {
+			if controllers[i].Type == "traffic" {
+				totalt++
+			} else {
+				totalc++
+			}
 			if controllers[i].Ready == false {
-				ready = false
+				if controllers[i].Type == "traffic" {
+					readyt = false
+				} else {
+					readyc = false
+				}
 				break
 			}
 		}
-		if ready == false {
+		if readyt == false || readyc == false {
+			continue
+		}
+		if totalt == 0 || totalc == 0 {
 			continue
 		}
 		// make sure we don't go over max speed limit
@@ -184,16 +198,22 @@ func processMsgs() {
 		tempController := Controller{}
 		json.Unmarshal(d.Body, &tempController)
 		found := false
+		var tempRemove int
 		for i := range controllers {
 			if controllers[i].ID == tempController.ID {
 				found = true
 				controllers[i].Ready = tempController.Ready
+				tempRemove = i
 				break
 			}
 		}
-		LogToConsole("Controller found stats: " + strconv.FormatBool(found))
+		//LogToConsole("Controller found stats: " + strconv.FormatBool(found))
 		if found == false {
 			controllers = append(controllers, tempController)
+		}
+		// Remove the controller if it sent exit true
+		if tempController.Exit == true {
+			controllers = append(controllers[:tempRemove], controllers[tempRemove+1:]...)
 		}
 		LogToConsole("Done")
 		d.Ack(false)
