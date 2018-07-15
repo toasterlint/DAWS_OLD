@@ -39,3 +39,25 @@ type Settings struct {
 	Triggers                []Trigger     `json:"triggers" bson:"triggers"`
 	SpeedLimits             []SpeedLimit  `json:"speedLimits" bson:"speedLimits"`
 }
+
+type WorldQueueMessage struct {
+	Controller string `json:"controller"`
+	Status     string `json:"status"`
+	Detail     string `json:"detail"`
+}
+
+type WorldTrafficQueueMessage struct {
+	WorldSettings Settings `json:"worldSettings"`
+	Datetime      string   `json:"datetime"`
+}
+
+type WorldCityQueueMessage struct {
+	City     string `json:"city"`
+	Datetime string `json:"datetime"`
+}
+
+type Controller struct {
+	ID    string `json:"id"`
+	Type  string `json:"type"`
+	Ready bool   `json:"ready"`
+}

@@ -18,28 +18,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-type worldQueueMessage struct {
-	Controller string `json:"controller"`
-	Status     string `json:"status"`
-	Detail     string `json:"detail"`
-}
-
-type worldTrafficQueueMessage struct {
-	WorldSettings Settings `json:"worldSettings"`
-	Datetime      string   `json:"datetime"`
-}
-
-type worldCityQueueMessage struct {
-	City     string `json:"city"`
-	Datetime string `json:"datetime"`
-}
-
-type controller struct {
-	ID    string `json:"id"`
-	Type  string `json:"type"`
-	Ready bool   `json:"ready"`
-}
-
 var conn *amqp.Connection
 var ch *amqp.Channel
 var worldq, worldtrafficq, worldcityq amqp.Queue
@@ -47,7 +25,7 @@ var msgs <-chan amqp.Delivery
 var maxTriggerTime int // smaller number equals faster speed
 var runTrigger bool
 var logger *log.Logger
-var controllers []controller
+var controllers []Controller
 var lastTime time.Time
 var settings Settings
 var dao = WorldDAO{Server: "mongo.daws.xyz", Database: "daws", Username: "daws", Password: "daws"}
@@ -139,13 +117,13 @@ func apiStatus(w http.ResponseWriter, r *http.Request) {
 
 func apiTrigger(w http.ResponseWriter, r *http.Request) {
 	cities := []string{"Orlando", "Green Bay", "Chicago", "Seattle"}
-	msg := &worldTrafficQueueMessage{WorldSettings: settings, Datetime: lastTime.Format("2006-01-02 15:04:05")}
+	msg := &WorldTrafficQueueMessage{WorldSettings: settings, Datetime: lastTime.Format("2006-01-02 15:04:05")}
 	triggerNext(cities, msg)
 	logToConsole("Manually Trigger")
 	w.Write([]byte("Manually triggered"))
 }
 
-func triggerNext(cities []string, worldtrafficmessage *worldTrafficQueueMessage) {
+func triggerNext(cities []string, worldtrafficmessage *WorldTrafficQueueMessage) {
 	tempMsgJSON, _ := json.Marshal(worldtrafficmessage)
 	err := ch.Publish(
 		"",                 // exchange
@@ -159,7 +137,7 @@ func triggerNext(cities []string, worldtrafficmessage *worldTrafficQueueMessage)
 		})
 	failOnError(err, "Failed to post to World Traffic Queue")
 	for _, element := range cities {
-		tempMsg := &worldCityQueueMessage{City: element, Datetime: worldtrafficmessage.Datetime}
+		tempMsg := &WorldCityQueueMessage{City: element, Datetime: worldtrafficmessage.Datetime}
 		tempMsgJSON, _ := json.Marshal(tempMsg)
 		err := ch.Publish(
 			"",              // exchange
@@ -205,7 +183,7 @@ func processTrigger() {
 			logToConsole("Warning: world processing too slow, last duration was - " + dur.String())
 		}
 		cities := []string{"Orlando", "Green Bay", "Chicago", "Seattle"}
-		msg := &worldTrafficQueueMessage{WorldSettings: settings, Datetime: lastTime.Format("2006-01-02 15:04:05")}
+		msg := &WorldTrafficQueueMessage{WorldSettings: settings, Datetime: lastTime.Format("2006-01-02 15:04:05")}
 		triggerNext(cities, msg)
 		lastTime = lastTime.Add(time.Second * 1)
 		realLastTime = time.Now()
@@ -216,7 +194,7 @@ func processMsgs() {
 	for d := range msgs {
 		bodyString := string(d.Body[:])
 		logToConsole("Received a message: " + bodyString)
-		tempController := controller{}
+		tempController := Controller{}
 		json.Unmarshal(d.Body, &tempController)
 		found := false
 		for i := range controllers {
@@ -320,7 +298,7 @@ func main() {
 	logger.SetPrefix("")
 	loadConfig()
 	runTrigger = true
-	controllers = []controller{}
+	controllers = []Controller{}
 
 	//init rabbit
 	connectQueues()
