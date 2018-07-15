@@ -10,7 +10,7 @@ import (
 
 	uuid "github.com/nu7hatch/gouuid"
 	"github.com/streadway/amqp"
-	. "github.com/toasterlint/DAWS/common"
+	. "github.com/toasterlint/DAWS/common/utils"
 	. "github.com/toasterlint/DAWS/world_controller/dao"
 	worldModels "github.com/toasterlint/DAWS/world_controller/models"
 )

@@ -11,7 +11,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/streadway/amqp"
-	. "github.com/toasterlint/DAWS/common"
+	. "github.com/toasterlint/DAWS/common/utils"
 	. "github.com/toasterlint/DAWS/world_controller/dao"
 	. "github.com/toasterlint/DAWS/world_controller/models"
 	"gopkg.in/mgo.v2/bson"
@@ -303,6 +303,7 @@ func loadConfig() {
 	timeLayout := "2006-01-02 15:04:05"
 	lastTime, err = time.Parse(timeLayout, settings.LastTime)
 }
+
 func main() {
 	// Set some initial variables
 	InitLogger()
@@ -330,4 +331,12 @@ func main() {
 	<-forever
 
 	Logger.Println("done")
+}
+
+func getCities() {
+
+}
+
+func getPeople() {
+
 }
