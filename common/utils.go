@@ -8,7 +8,7 @@ import (
 
 var Logger *log.Logger
 
-func Init() {
+func InitLogger() {
 	Logger = log.New(os.Stdout, "", 0)
 	Logger.SetPrefix("")
 
