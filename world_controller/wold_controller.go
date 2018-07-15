@@ -217,6 +217,7 @@ ReadCommand:
 		_, err = ch.QueuePurge(worldq.Name, false)
 		FailOnError(err, "Failed to purge World Queue")
 		Logger.Println("Saving settings...")
+		settings.LastTime = lastTime.Format("2006-01-02 15:04:05")
 		err = dao.SaveSettings(settings)
 		FailOnError(err, "Failed to save settings")
 		Logger.Println("Exiting...")
@@ -278,6 +279,9 @@ func loadConfig() {
 		err := dao.InsertSettings(tempSettings)
 		FailOnError(err, "Failed to insert settings")
 	}
+	// Need to use lastTime since settings.LastTime is a string and we need to do time math
+	timeLayout := "2006-01-02 15:04:05"
+	lastTime, err = time.Parse(timeLayout, settings.LastTime)
 }
 func main() {
 	// Set some initial variables
