@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/streadway/amqp"
+	"github.com/toasterlint/DAWS/common/utils"
 	. "github.com/toasterlint/DAWS/world_controller/dao"
 	. "github.com/toasterlint/DAWS/world_controller/models"
 	"gopkg.in/mgo.v2/bson"
@@ -24,23 +24,10 @@ var worldq, worldtrafficq, worldcityq amqp.Queue
 var msgs <-chan amqp.Delivery
 var maxTriggerTime int // smaller number equals faster speed
 var runTrigger bool
-var logger *log.Logger
 var controllers []Controller
 var lastTime time.Time
 var settings Settings
 var dao = WorldDAO{Server: "mongo.daws.xyz", Database: "daws", Username: "daws", Password: "daws"}
-
-func logToConsole(message string) {
-	logger.Printf("\r\033[0K%s", message)
-	logger.Printf("\r\033[0KCommand: ")
-}
-
-func failOnError(err error, msg string) {
-	if err != nil {
-		logger.Fatalf("%s: %s", msg, err)
-		panic(fmt.Sprintf("%s: %s", msg, err))
-	}
-}
 
 func startHTTPServer() {
 	r := mux.NewRouter()
@@ -53,10 +40,10 @@ func startHTTPServer() {
 func connectQueues() {
 	var err error
 	conn, err = amqp.Dial("amqp://guest:guest@rabbitmq.daws.xyz:5672")
-	failOnError(err, "Failed to connect to RabbitMQ")
+	FailOnError(err, "Failed to connect to RabbitMQ")
 
 	ch, err = conn.Channel()
-	failOnError(err, "Failed to open a channel")
+	FailOnError(err, "Failed to open a channel")
 
 	worldq, err = ch.QueueDeclare(
 		"world_queue", //name
@@ -78,7 +65,7 @@ func connectQueues() {
 	)
 	failOnError(err, "Failed to declare queue")
 
-	logger.Printf("World Traffic Queue Consumers: %d", worldtrafficq.Consumers)
+	Logger.Printf("World Traffic Queue Consumers: %d", worldtrafficq.Consumers)
 
 	worldcityq, err = ch.QueueDeclare(
 		"world_city_queue", //name
@@ -90,7 +77,7 @@ func connectQueues() {
 	)
 	failOnError(err, "Failed to declare queue")
 
-	logger.Printf("World City Queue Consumers: %d", worldcityq.Consumers)
+	Logger.Printf("World City Queue Consumers: %d", worldcityq.Consumers)
 
 	err = ch.Qos(
 		1,     //prefetch count
@@ -217,28 +204,28 @@ func runConsole() {
 	// setup terminal
 	reader := bufio.NewReader(os.Stdin)
 ReadCommand:
-	logger.Print("Command: ")
+	Logger.Print("Command: ")
 	text, _ := reader.ReadString('\n')
 	text = strings.Trim(text, "\n")
 	switch text {
 	case "exit":
-		logger.Print("Purging queues")
+		Logger.Print("Purging queues")
 		_, err := ch.QueuePurge(worldcityq.Name, false)
 		failOnError(err, "Failed to purge World City Queue")
 		_, err = ch.QueuePurge(worldtrafficq.Name, false)
 		failOnError(err, "Failed to purge World Traffic Queue")
 		_, err = ch.QueuePurge(worldq.Name, false)
 		failOnError(err, "Failed to purge World Queue")
-		logger.Println("Saving settings...")
+		Logger.Println("Saving settings...")
 		err = dao.SaveSettings(settings)
 		failOnError(err, "Failed to save settings")
-		logger.Println("Exiting...")
+		Logger.Println("Exiting...")
 		os.Exit(0)
 	case "status":
 		if runTrigger {
-			logger.Println("Running...")
+			Logger.Println("Running...")
 		} else {
-			logger.Println("Stopped...")
+			Logger.Println("Stopped...")
 		}
 
 		tcontrollers := 0
@@ -250,16 +237,16 @@ ReadCommand:
 				ccontrollers++
 			}
 		}
-		logger.Printf("Traffic Controllers: %d", tcontrollers)
-		logger.Printf("City Controllers: %d", ccontrollers)
-		logger.Printf("Current Real Time: %s", time.Now().Format("2006-01-02 15:04:05"))
-		logger.Printf("Current Simulated Time: %s", lastTime.Format("2006-01-02 15:04:05"))
+		Logger.Printf("Traffic Controllers: %d", tcontrollers)
+		Logger.Printf("City Controllers: %d", ccontrollers)
+		Logger.Printf("Current Real Time: %s", time.Now().Format("2006-01-02 15:04:05"))
+		Logger.Printf("Current Simulated Time: %s", lastTime.Format("2006-01-02 15:04:05"))
 	case "help":
 		fallthrough
 	default:
-		logger.Println("Help: ")
-		logger.Println("   status - Check the status of the world")
-		logger.Println("   exit - Exit the App")
+		Logger.Println("Help: ")
+		Logger.Println("   status - Check the status of the world")
+		Logger.Println("   exit - Exit the App")
 	}
 	goto ReadCommand
 }
@@ -294,8 +281,7 @@ func loadConfig() {
 }
 func main() {
 	// Set some initial variables
-	logger = log.New(os.Stdout, "", 0)
-	logger.SetPrefix("")
+	utils.Init()
 	loadConfig()
 	runTrigger = true
 	controllers = []Controller{}
@@ -319,5 +305,5 @@ func main() {
 	forever := make(chan bool)
 	<-forever
 
-	logger.Println("done")
+	Logger.Println("done")
 }
