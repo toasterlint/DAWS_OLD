@@ -272,11 +272,20 @@ ReadCommand:
 		Logger.Printf("City Controllers: %d", ccontrollers)
 		Logger.Printf("Current Real Time: %s", time.Now().Format("2006-01-02 15:04:05"))
 		Logger.Printf("Current Simulated Time: %s", lastTime.Format("2006-01-02 15:04:05"))
+	case "start":
+		runTrigger = true
+		go processTrigger()
+		Logger.Println("World simulation started")
+	case "stop":
+		runTrigger = false
+		Logger.Println("World simulation stopped")
 	case "help":
 		fallthrough
 	default:
 		Logger.Println("Help: ")
 		Logger.Println("   status - Check the status of the world")
+		Logger.Println("   start - Start world simulation")
+		Logger.Println("   stop - Stop world simulation")
 		Logger.Println("   exit - Exit the App")
 	}
 	goto ReadCommand
@@ -290,7 +299,7 @@ func loadConfig() {
 	FailOnError(err, "Failed to load settings")
 	if settings.ID.Valid() {
 		sett, _ := json.Marshal(settings)
-		LogToConsole(string(sett))
+		Logger.Println(string(sett))
 	} else {
 		LogToConsole("No settings found, creating defaults")
 		var tempSettings Settings
@@ -322,7 +331,6 @@ func main() {
 	// Set some initial variables
 	InitLogger()
 	loadConfig()
-	runTrigger = true
 	controllers = []Controller{}
 
 	//init rabbit
@@ -342,14 +350,15 @@ func main() {
 		aWholeNewWorld()
 	}
 
-	// TEMP: Start trigger
+	// start world simulation
+	runTrigger = true
 	go processTrigger()
+
+	Logger.Println("done initializing")
 
 	// Loop main thread
 	forever := make(chan bool)
 	<-forever
-
-	Logger.Println("done")
 }
 
 func getCitiesCount() {
