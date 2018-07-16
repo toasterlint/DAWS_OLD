@@ -24,12 +24,11 @@ import (
 
 var conn *amqp.Connection
 var ch *amqp.Channel
-var worldq, worldtrafficq, worldcityq amqp.Queue
+var worldq, worldtrafficq, worldcityq, cityjobq, trafficjobq amqp.Queue
 var msgs <-chan amqp.Delivery
 var maxTriggerTime int // smaller number equals faster speed
 var runTrigger bool
 var controllers []commonModels.Controller
-var lastTime time.Time
 var settings commonModels.Settings
 var dao = worldDAO.DAO{Server: "mongo.daws.xyz", Database: "daws", Username: "daws", Password: "daws"}
 var commondao = commonDAO.DAO{Server: "mongo.daws.xyz", Database: "daws", Username: "daws", Password: "daws"}
@@ -87,6 +86,26 @@ func connectQueues() {
 
 	Logger.Printf("World City Queue Consumers: %d", worldcityq.Consumers)
 
+	cityjobq, err = ch.QueueDeclare(
+		"city_job_queue", // name
+		true,             // durable
+		false,            //delete when unused
+		false,            // exclusive
+		false,            // no wait
+		nil,              // arguments
+	)
+	FailOnError(err, "Failed to declare City Job Queue")
+
+	trafficjobq, err = ch.QueueDeclare(
+		"traffic_job_queue", // name
+		true,                // durable
+		false,               //delete when unused
+		false,               // exclusive
+		false,               // no wait
+		nil,                 // arguments
+	)
+	FailOnError(err, "Failed to declare Traffic Job Queue")
+
 	err = ch.Qos(
 		1,     //prefetch count
 		0,     //prefetch size
@@ -113,13 +132,13 @@ func apiStatus(w http.ResponseWriter, r *http.Request) {
 func apiTrigger(w http.ResponseWriter, r *http.Request) {
 	cityids, err := commondao.GetAllCityIDs()
 	FailOnError(err, "Failed to get city IDs")
-	msg := &commonModels.WorldTrafficQueueMessage{WorldSettings: settings, Datetime: lastTime}
+	msg := &commonModels.WorldTrafficQueueMessage{WorldSettings: settings}
 	triggerNext(cityids, msg)
 	LogToConsole("Manually Trigger")
 	w.Write([]byte("Manually triggered"))
 }
 
-func triggerNext(cities []commonDAO.Mongoids, worldtrafficmessage *commonModels.WorldTrafficQueueMessage) {
+func triggerNext(cities []commonDAO.Mongoid, worldtrafficmessage *commonModels.WorldTrafficQueueMessage) {
 	tempMsgJSON, _ := json.Marshal(worldtrafficmessage)
 	err := ch.Publish(
 		"",                 // exchange
@@ -133,7 +152,7 @@ func triggerNext(cities []commonDAO.Mongoids, worldtrafficmessage *commonModels.
 		})
 	FailOnError(err, "Failed to post to World Traffic Queue")
 	for _, element := range cities {
-		tempMsg := &commonModels.WorldCityQueueMessage{WorldSettings: settings, City: element.ID.Hex(), Datetime: worldtrafficmessage.Datetime}
+		tempMsg := &commonModels.WorldCityQueueMessage{WorldSettings: settings, City: element.ID.Hex()}
 		tempMsgJSON, _ := json.Marshal(tempMsg)
 		err := ch.Publish(
 			"",              // exchange
@@ -195,9 +214,9 @@ func processTrigger() {
 		}
 		cityids, err := commondao.GetAllCityIDs()
 		FailOnError(err, "Failed to get city IDs2")
-		msg := &commonModels.WorldTrafficQueueMessage{WorldSettings: settings, Datetime: lastTime}
+		msg := &commonModels.WorldTrafficQueueMessage{WorldSettings: settings}
 		triggerNext(cityids, msg)
-		lastTime = lastTime.Add(time.Second * 1)
+		settings.LastTime = settings.LastTime.Add(time.Second * 1)
 		realLastTime = time.Now()
 	}
 }
@@ -248,7 +267,6 @@ ReadCommand:
 		_, err = ch.QueuePurge(worldq.Name, false)
 		FailOnError(err, "Failed to purge World Queue")
 		Logger.Println("Saving settings...")
-		settings.LastTime = lastTime.Format("2006-01-02 15:04:05")
 		err = dao.SaveSettings(settings)
 		FailOnError(err, "Failed to save settings")
 		Logger.Println("Exiting...")
@@ -272,7 +290,7 @@ ReadCommand:
 		Logger.Printf("Traffic Controllers: %d", tcontrollers)
 		Logger.Printf("City Controllers: %d", ccontrollers)
 		Logger.Printf("Current Real Time: %s", time.Now().Format("2006-01-02 15:04:05"))
-		Logger.Printf("Current Simulated Time: %s", lastTime.Format("2006-01-02 15:04:05"))
+		Logger.Printf("Current Simulated Time: %s", settings.LastTime.Format("2006-01-02 15:04:05"))
 	case "start":
 		runTrigger = true
 		go processTrigger()
@@ -306,7 +324,7 @@ func loadConfig() {
 		var tempSettings commonModels.Settings
 		tempSettings.CarAccidentFatalityRate = 0.0001159
 		tempSettings.ID = bson.NewObjectId()
-		tempSettings.LastTime = time.Now().Format("2006-01-02 15:04:05")
+		tempSettings.LastTime = time.Now()
 		tempSettings.MurderRate = 0.000053
 		tempSettings.ViolentCrimeRate = 0.00381
 		tempSettings.WorldSpeed = 5000
@@ -318,11 +336,9 @@ func loadConfig() {
 		tempSettings.SpeedLimits = speeds
 		tempSettings.Diseases = []commonModels.Disease{}
 		err := dao.InsertSettings(tempSettings)
+		settings = tempSettings
 		FailOnError(err, "Failed to insert settings")
 	}
-	// Need to use lastTime since settings.LastTime is a string and we need to do time math
-	timeLayout := "2006-01-02 15:04:05"
-	lastTime, err = time.Parse(timeLayout, settings.LastTime)
 	getBuildingsCount()
 	getCitiesCount()
 	getPeopleCount()
@@ -397,7 +413,7 @@ func aWholeNewWorld() {
 	}
 	newCity.TopLeft = Point{X: randomdata.Number(5274720), Y: randomdata.Number(5274720)}
 	newCity.BottomRight = Point{X: newCity.TopLeft.X + 5280, Y: newCity.TopLeft.Y + 5280}
-	newCity.Established = lastTime
+	newCity.Established = settings.LastTime
 	err = commondao.CreateCity(newCity)
 	FailOnError(err, "Failed to create new city")
 	Logger.Printf("Created City: %s", newCity.Name)
@@ -410,7 +426,7 @@ func canWeFixIt(city commonModels.City) {
 	LogToConsole("Yes we can!")
 	newBuilding := commonModels.Building{}
 	newBuilding.ID = bson.NewObjectId()
-	newBuilding.BuildDate = lastTime
+	newBuilding.BuildDate = settings.LastTime
 	newBuilding.Floors = 1
 	newBuilding.MaxOccupancy = 20
 	newBuilding.Name = "Home"
@@ -459,7 +475,7 @@ func justTheTwoOfUs(building commonModels.Building) {
 		female.FirstName = strings.Split(fname, "_")[0]
 		female.LastName = male.LastName
 	}
-	male.Birthdate = lastTime.AddDate(-18, 0, 0)
+	male.Birthdate = settings.LastTime.AddDate(-18, 0, 0)
 	female.Birthdate = male.Birthdate
 	male.ChildrenIDs = []bson.ObjectId{}
 	female.ChildrenIDs = male.ChildrenIDs

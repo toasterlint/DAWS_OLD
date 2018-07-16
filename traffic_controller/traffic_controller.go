@@ -140,7 +140,6 @@ func connectQueues() {
 }
 
 func processMsgs() {
-	var err error
 	for d := range msgs {
 		bodyString := string(d.Body[:])
 		LogToConsole("Received a message: " + bodyString)
@@ -148,9 +147,6 @@ func processMsgs() {
 		json.Unmarshal(d.Body, &worldMsg)
 		// Need to use lastTime since settings.LastTime is a string and we need to do time math
 		settings = worldMsg.WorldSettings
-		timeLayout := "2006-01-02 15:04:05"
-		lastTime, err = time.Parse(timeLayout, settings.LastTime)
-		FailOnError(err, "issue converting times")
 		d.Ack(false)
 	}
 }

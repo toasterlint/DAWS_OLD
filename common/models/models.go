@@ -27,7 +27,7 @@ type Settings struct {
 	CarAccidentFatalityRate float32       `json:"carAccidentFatalityRate" bson:"carAccidentFatalityRate"`
 	Diseases                []Disease     `json:"diseases" bson:"diseases"`
 	WorldSpeed              int           `json:"worldSpeed" bson:"worldSpeed"`
-	LastTime                string        `json:"lastTime" bson:"lastTime"`
+	LastTime                time.Time     `json:"lastTime" bson:"lastTime"`
 	Triggers                []Trigger     `json:"triggers" bson:"triggers"`
 	SpeedLimits             []SpeedLimit  `json:"speedLimits" bson:"speedLimits"`
 }
@@ -41,21 +41,18 @@ type WorldQueueMessage struct {
 
 // WorldTrafficQueueMessage Messages sent to World Traffic Queue
 type WorldTrafficQueueMessage struct {
-	WorldSettings Settings  `json:"worldSettings"`
-	Datetime      time.Time `json:"datetime"`
+	WorldSettings Settings `json:"worldSettings"`
 }
 
 // WorldCityQueueMessage Messages sent to World City Queue
 type WorldCityQueueMessage struct {
-	WorldSettings Settings  `json:"worldSettings"`
-	City          string    `json:"city"`
-	Datetime      time.Time `json:"datetime"`
+	WorldSettings Settings `json:"worldSettings"`
+	City          string   `json:"city"`
 }
 
 type CityWorkerQueueMessage struct {
-	WorldSettings Settings  `json:"worldSettings"`
-	BuildingID    string    `json:"buildingid"`
-	Datetime      time.Time `json:"datetime"`
+	WorldSettings Settings `json:"worldSettings"`
+	BuildingID    string   `json:"buildingid"`
 }
 
 type ControllerType int

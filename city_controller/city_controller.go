@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"gopkg.in/mgo.v2/bson"
+
 	uuid "github.com/nu7hatch/gouuid"
 	"github.com/streadway/amqp"
 	. "github.com/toasterlint/DAWS/common/dao"
@@ -140,7 +142,6 @@ func connectQueues() {
 }
 
 func processMsgs() {
-	var err error
 	for d := range msgs {
 		bodyString := string(d.Body[:])
 		LogToConsole("Received a message: " + bodyString)
@@ -148,12 +149,33 @@ func processMsgs() {
 		json.Unmarshal(d.Body, &worldMsg)
 		// Need to use lastTime since settings.LastTime is a string and we need to do time math
 		settings = worldMsg.WorldSettings
-		timeLayout := "2006-01-02 15:04:05"
-		lastTime, err = time.Parse(timeLayout, settings.LastTime)
-		FailOnError(err, "issue converting times")
-		time.Sleep(time.Second * 5)
+
+		//get buildings to queue up workers
+		//first check that we actually have a city objectid hex so we don't get a runtime error
+		if bson.IsObjectIdHex(worldMsg.City) {
+			buildingIDs, err := dao.GetAllBuildingIDs(Mongoid{ID: bson.ObjectIdHex(worldMsg.City)})
+			FailOnError(err, "Failed to get Building IDs for city")
+			for i := range buildingIDs {
+				go publishToWorkQueue(buildingIDs[i].ID)
+			}
+		}
+
 		d.Ack(false)
 	}
+}
+
+func publishToWorkQueue(bson.ObjectId) {
+	err := ch.Publish(
+		"",            // exchange
+		cityjobq.Name, // routing key
+		false,         // mandatory
+		false,
+		amqp.Publishing{
+			DeliveryMode: amqp.Persistent,
+			ContentType:  "application/json",
+			Body:         []byte(""),
+		})
+	FailOnError(err, "Failed to publish building to job queue")
 }
 
 func main() {
@@ -162,6 +184,7 @@ func main() {
 	myself = commonModels.Controller{ID: id.String(), Ready: true, Type: "city", Exit: false}
 
 	InitLogger()
+	dao.Connect()
 	connectQueues()
 	defer conn.Close()
 	defer ch.Close()
