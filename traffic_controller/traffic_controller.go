@@ -10,8 +10,8 @@ import (
 
 	uuid "github.com/nu7hatch/gouuid"
 	"github.com/streadway/amqp"
+	. "github.com/toasterlint/DAWS/common/dao"
 	. "github.com/toasterlint/DAWS/common/utils"
-	. "github.com/toasterlint/DAWS/world_controller/dao"
 	worldModels "github.com/toasterlint/DAWS/world_controller/models"
 )
 
@@ -20,7 +20,7 @@ var conn *amqp.Connection
 var ch *amqp.Channel
 var worldq, worldtrafficq, trafficjobq amqp.Queue
 var msgs <-chan amqp.Delivery
-var dao = WorldDAO{Server: "mongo.daws.xyz", Database: "daws", Username: "daws", Password: "daws"}
+var dao = DAO{Server: "mongo.daws.xyz", Database: "daws", Username: "daws", Password: "daws"}
 var lastTime time.Time
 var myself worldModels.Controller
 

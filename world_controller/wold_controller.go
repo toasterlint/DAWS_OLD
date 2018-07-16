@@ -112,14 +112,15 @@ func apiStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func apiTrigger(w http.ResponseWriter, r *http.Request) {
-	cities := []string{"Orlando", "Green Bay", "Chicago", "Seattle"}
+	cityids, err := commondao.GetAllCityIDs()
+	FailOnError(err, "Failed to get city IDs")
 	msg := &WorldTrafficQueueMessage{WorldSettings: settings, Datetime: lastTime.Format("2006-01-02 15:04:05")}
-	triggerNext(cities, msg)
+	triggerNext(cityids, msg)
 	LogToConsole("Manually Trigger")
 	w.Write([]byte("Manually triggered"))
 }
 
-func triggerNext(cities []string, worldtrafficmessage *WorldTrafficQueueMessage) {
+func triggerNext(cities []commonDAO.Cityids, worldtrafficmessage *WorldTrafficQueueMessage) {
 	tempMsgJSON, _ := json.Marshal(worldtrafficmessage)
 	err := ch.Publish(
 		"",                 // exchange
@@ -133,7 +134,7 @@ func triggerNext(cities []string, worldtrafficmessage *WorldTrafficQueueMessage)
 		})
 	FailOnError(err, "Failed to post to World Traffic Queue")
 	for _, element := range cities {
-		tempMsg := &WorldCityQueueMessage{WorldSettings: settings, City: element, Datetime: worldtrafficmessage.Datetime}
+		tempMsg := &WorldCityQueueMessage{WorldSettings: settings, City: element.ID.Hex(), Datetime: worldtrafficmessage.Datetime}
 		tempMsgJSON, _ := json.Marshal(tempMsg)
 		err := ch.Publish(
 			"",              // exchange
@@ -193,9 +194,10 @@ func processTrigger() {
 		if dur > time.Duration(maxTriggerTime)*time.Millisecond {
 			LogToConsole("Warning: world processing too slow, last duration was - " + dur.String())
 		}
-		cities := []string{"Orlando", "Green Bay", "Chicago", "Seattle"}
+		cityids, err := commondao.GetAllCityIDs()
+		FailOnError(err, "Failed to get city IDs2")
 		msg := &WorldTrafficQueueMessage{WorldSettings: settings, Datetime: lastTime.Format("2006-01-02 15:04:05")}
-		triggerNext(cities, msg)
+		triggerNext(cityids, msg)
 		lastTime = lastTime.Add(time.Second * 1)
 		realLastTime = time.Now()
 	}

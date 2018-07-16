@@ -17,6 +17,10 @@ type DAO struct {
 	Password string
 }
 
+type Cityids struct {
+	ID bson.ObjectId `json:"id" bson:"_id"`
+}
+
 var db *mgo.Database
 
 const (
@@ -57,6 +61,13 @@ func (m *DAO) UpdateCity(city commonModels.City) error {
 func (m *DAO) GetCitiesCount() (int, error) {
 	citiesCount, err := db.C(COLLECTIONCITY).Find(bson.M{}).Count()
 	return citiesCount, err
+}
+
+func (m *DAO) GetAllCityIDs() ([]Cityids, error) {
+	var cityids []Cityids
+	err := db.C(COLLECTIONCITY).Find(bson.M{}).Select(bson.M{"_id": 1}).All(&cityids)
+	Logger.Println(len(cityids))
+	return cityids, err
 }
 
 // CreateBuilding Creates a city in DB
