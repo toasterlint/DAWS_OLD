@@ -15,9 +15,10 @@ import (
 	"github.com/Pallinder/go-randomdata"
 	"github.com/gorilla/mux"
 	"github.com/streadway/amqp"
+	commonDAO "github.com/toasterlint/DAWS/common/dao"
 	commonModels "github.com/toasterlint/DAWS/common/models"
 	. "github.com/toasterlint/DAWS/common/utils"
-	. "github.com/toasterlint/DAWS/world_controller/dao"
+	worldDAO "github.com/toasterlint/DAWS/world_controller/dao"
 	. "github.com/toasterlint/DAWS/world_controller/models"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -31,7 +32,8 @@ var runTrigger bool
 var controllers []Controller
 var lastTime time.Time
 var settings Settings
-var dao = WorldDAO{Server: "mongo.daws.xyz", Database: "daws", Username: "daws", Password: "daws"}
+var dao = worldDAO.DAO{Server: "mongo.daws.xyz", Database: "daws", Username: "daws", Password: "daws"}
+var commondao = commonDAO.DAO{Server: "mongo.daws.xyz", Database: "daws", Username: "daws", Password: "daws"}
 var numCities = 0
 var numBuildings = 0
 var numPeople = 0
@@ -282,6 +284,7 @@ ReadCommand:
 
 func loadConfig() {
 	dao.Connect()
+	commondao.Connect()
 	var err error
 	settings, err = dao.LoadSettings()
 	FailOnError(err, "Failed to load settings")
@@ -350,17 +353,17 @@ func main() {
 }
 
 func getCitiesCount() {
-	numCities, _ = dao.GetCitiesCount()
+	numCities, _ = commondao.GetCitiesCount()
 	Logger.Printf("Number of Cities: %d", numCities)
 }
 
 func getPeopleCount() {
-	numPeople, _ = dao.GetPeopleCount()
+	numPeople, _ = commondao.GetPeopleCount()
 	Logger.Printf("Nummber of People in world: %d", numPeople)
 }
 
 func getBuildingsCount() {
-	numBuildings, _ = dao.GetBuildingsCount()
+	numBuildings, _ = commondao.GetBuildingsCount()
 	Logger.Printf("Nummber of Buildings in world: %d", numBuildings)
 }
 
@@ -386,7 +389,7 @@ func aWholeNewWorld() {
 	newCity.BottomRight = Point{X: newCity.TopLeft.X + 5280, Y: newCity.TopLeft.Y + 5280}
 	newCity.BuildingIDs = []bson.ObjectId{}
 	newCity.Established = lastTime
-	err = dao.CreateCity(newCity)
+	err = commondao.CreateCity(newCity)
 	FailOnError(err, "Failed to create new city")
 	Logger.Printf("Created City: %s", newCity.Name)
 
@@ -405,11 +408,11 @@ func canWeFixIt(city commonModels.City) {
 	newBuilding.Type = commonModels.House
 	newBuilding.TopLeft = Point{X: randomdata.Number(city.TopLeft.X, city.BottomRight.X-208), Y: randomdata.Number(city.TopLeft.Y, city.BottomRight.Y-208)}
 	newBuilding.BottomRight = Point{X: newBuilding.TopLeft.X + 208, Y: newBuilding.TopLeft.Y + 208}
-	err := dao.CreateBuilding(newBuilding)
+	err := commondao.CreateBuilding(newBuilding)
 	FailOnError(err, "Failed to create building")
 	LogToConsole("Created a new home, Updating City")
 	city.BuildingIDs = append(city.BuildingIDs, newBuilding.ID)
-	err = dao.UpdateCity(city)
+	err = commondao.UpdateCity(city)
 	FailOnError(err, "Failed to update City")
 	justTheTwoOfUs(newBuilding)
 }
@@ -471,9 +474,9 @@ func justTheTwoOfUs(building commonModels.Building) {
 	female.WorkBuilding = female.HomeBuilding
 	male.Spouse = female.ID
 	female.Spouse = male.ID
-	errM := dao.CreatePerson(male)
+	errM := commondao.CreatePerson(male)
 	FailOnError(errM, "Failed to create male")
-	errF := dao.CreatePerson(female)
+	errF := commondao.CreatePerson(female)
 	FailOnError(errF, "Failed to create female")
 
 	Logger.Printf("People Names: %s %s, %s %s", male.FirstName, male.LastName, female.FirstName, female.LastName)
