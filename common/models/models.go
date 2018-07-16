@@ -7,14 +7,83 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
+// Trigger triggers for the world
+type Trigger struct {
+	Name  string `json:"name" bson:"name"`
+	Value string `json:"value" bson:"value"`
+}
+
+// SpeedLimit
+type SpeedLimit struct {
+	Location string `json:"location" bson:"location"`
+	Value    int    `json:"value" bson:"value"`
+}
+
+// Settings settings for the world
+type Settings struct {
+	ID                      bson.ObjectId `json:"id" bson:"_id,omitempty"`
+	ViolentCrimeRate        float32       `json:"violentCrimeRate" bson:"violentCrimeRate"`
+	MurderRate              float32       `json:"murderRate" bson:"murderRate"`
+	CarAccidentFatalityRate float32       `json:"carAccidentFatalityRate" bson:"carAccidentFatalityRate"`
+	Diseases                []Disease     `json:"diseases" bson:"diseases"`
+	WorldSpeed              int           `json:"worldSpeed" bson:"worldSpeed"`
+	LastTime                string        `json:"lastTime" bson:"lastTime"`
+	Triggers                []Trigger     `json:"triggers" bson:"triggers"`
+	SpeedLimits             []SpeedLimit  `json:"speedLimits" bson:"speedLimits"`
+}
+
+// WorldQueueMessage Messages sent to World Queue
+type WorldQueueMessage struct {
+	Controller string `json:"controller"`
+	Status     string `json:"status"`
+	Detail     string `json:"detail"`
+}
+
+// WorldTrafficQueueMessage Messages sent to World Traffic Queue
+type WorldTrafficQueueMessage struct {
+	WorldSettings Settings  `json:"worldSettings"`
+	Datetime      time.Time `json:"datetime"`
+}
+
+// WorldCityQueueMessage Messages sent to World City Queue
+type WorldCityQueueMessage struct {
+	WorldSettings Settings  `json:"worldSettings"`
+	City          string    `json:"city"`
+	Datetime      time.Time `json:"datetime"`
+}
+
+type CityWorkerQueueMessage struct {
+	WorldSettings Settings  `json:"worldSettings"`
+	BuildingID    string    `json:"buildingid"`
+	Datetime      time.Time `json:"datetime"`
+}
+
+type ControllerType int
+
+const (
+	TrafficController ControllerType = iota + 1
+	CityController
+)
+
+// Controller a controller
+type Controller struct {
+	ID    string `json:"id"`
+	Type  string `json:"type"`
+	Ready bool   `json:"ready"`
+	Exit  bool   `json:"exit"`
+}
+
+type Worker struct {
+	ID string `json:"id"`
+}
+
 // City city
 type City struct {
-	ID          bson.ObjectId   `json:"id" bson:"_id,omitempty"`
-	Name        string          `json:"name" bson:"name"`
-	TopLeft     Point           `json:"topleft" bson:"topleft"`
-	BottomRight Point           `json:"bottomright" bson:"bottomright"`
-	BuildingIDs []bson.ObjectId `json:"buildingIDs" bson:"buildingIDs"`
-	Established time.Time       `json:"established" bson:"established"`
+	ID          bson.ObjectId `json:"id" bson:"_id,omitempty"`
+	Name        string        `json:"name" bson:"name"`
+	TopLeft     Point         `json:"topleft" bson:"topleft"`
+	BottomRight Point         `json:"bottomright" bson:"bottomright"`
+	Established time.Time     `json:"established" bson:"established"`
 }
 
 // BuildingType used to identify the type of building
@@ -42,6 +111,7 @@ type Building struct {
 	Type         BuildingType  `json:"type" bson:"type"`
 	Floors       int           `json:"floors" bson:"floors"`
 	MaxOccupancy int           `json:"maxoccupancy" bson:"maxoccupancy"`
+	CityID       bson.ObjectId `json:"cityid" bson:"cityid"`
 }
 
 // DeathType used to identify how person died

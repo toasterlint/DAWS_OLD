@@ -3,8 +3,8 @@ package dao
 import (
 	"time"
 
+	commonModels "github.com/toasterlint/DAWS/common/models"
 	. "github.com/toasterlint/DAWS/common/utils"
-	worldModels "github.com/toasterlint/DAWS/world_controller/models"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -39,23 +39,23 @@ func (m *DAO) Connect() {
 }
 
 // SaveSettings save settings to DB
-func (m *DAO) SaveSettings(settings worldModels.Settings) error {
+func (m *DAO) SaveSettings(settings commonModels.Settings) error {
 	err := db.C(COLLECTIONSETTINGS).UpdateId(settings.ID, &settings)
 	return err
 }
 
 // LoadSettings load settings from DB
-func (m *DAO) LoadSettings() (worldModels.Settings, error) {
-	var settings []worldModels.Settings
+func (m *DAO) LoadSettings() (commonModels.Settings, error) {
+	var settings []commonModels.Settings
 	err := db.C(COLLECTIONSETTINGS).Find(bson.M{}).All(&settings)
 	if len(settings) > 0 {
 		return settings[0], err
 	}
-	return worldModels.Settings{}, err
+	return commonModels.Settings{}, err
 }
 
 // InsertSettings create settings in DB
-func (m *DAO) InsertSettings(settings worldModels.Settings) error {
+func (m *DAO) InsertSettings(settings commonModels.Settings) error {
 	err := db.C(COLLECTIONSETTINGS).Insert(&settings)
 	return err
 }

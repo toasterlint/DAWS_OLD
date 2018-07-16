@@ -18,11 +18,11 @@ import (
 var settings commonModels.Settings
 var conn *amqp.Connection
 var ch *amqp.Channel
-var worldq, worldcityq, cityjobq amqp.Queue
+var cityjobq amqp.Queue
 var msgs <-chan amqp.Delivery
 var dao = DAO{Server: "mongo.daws.xyz", Database: "daws", Username: "daws", Password: "daws"}
 var lastTime time.Time
-var myself commonModels.Controller
+var myself commonModels.Worker
 
 func runConsole() {
 	// setup terminal
@@ -77,39 +77,6 @@ func connectQueues() {
 	ch, err = conn.Channel()
 	FailOnError(err, "Failed to open a channel")
 
-	worldq, err = ch.QueueDeclare(
-		"world_queue", //name
-		true,          // durable
-		false,         // delete when unused
-		false,         // exclusive
-		false,         // no-wait
-		nil,           // arguments
-	)
-	FailOnError(err, "Failed to declare queue")
-
-	tempMsgJSON, _ := json.Marshal(myself)
-	err = ch.Publish(
-		"",
-		worldq.Name,
-		false,
-		false,
-		amqp.Publishing{
-			DeliveryMode: amqp.Persistent,
-			ContentType:  "application/json",
-			Body:         []byte(tempMsgJSON),
-		})
-	FailOnError(err, "Failed to notify World Controller of my status")
-
-	worldcityq, err = ch.QueueDeclare(
-		"world_city_queue", //name
-		true,               // durable
-		false,              //delete when unused
-		false,              //exclusive
-		false,              //no-wait
-		nil,                //args
-	)
-	FailOnError(err, "Failed to declase a queue")
-
 	cityjobq, err = ch.QueueDeclare(
 		"city_job_queue", // name
 		true,             // durable
@@ -128,13 +95,13 @@ func connectQueues() {
 	FailOnError(err, "Failed to set QoS")
 
 	msgs, err = ch.Consume(
-		worldcityq.Name, // queue
-		"",              // consumer
-		false,           // auto-ack
-		false,           // exclusive
-		false,           // no-local
-		false,           // no-wait
-		nil,             // args
+		cityjobq.Name, // queue
+		"",            // consumer
+		false,         // auto-ack
+		false,         // exclusive
+		false,         // no-local
+		false,         // no-wait
+		nil,           // args
 	)
 	FailOnError(err, "Failed to register a consumer")
 }
@@ -159,7 +126,7 @@ func processMsgs() {
 func main() {
 
 	id, _ := uuid.NewV4()
-	myself = commonModels.Controller{ID: id.String(), Ready: true, Type: "city", Exit: false}
+	myself = commonModels.Worker{ID: id.String()}
 
 	InitLogger()
 	connectQueues()

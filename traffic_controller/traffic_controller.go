@@ -11,18 +11,18 @@ import (
 	uuid "github.com/nu7hatch/gouuid"
 	"github.com/streadway/amqp"
 	. "github.com/toasterlint/DAWS/common/dao"
+	commonModels "github.com/toasterlint/DAWS/common/models"
 	. "github.com/toasterlint/DAWS/common/utils"
-	worldModels "github.com/toasterlint/DAWS/world_controller/models"
 )
 
-var settings worldModels.Settings
+var settings commonModels.Settings
 var conn *amqp.Connection
 var ch *amqp.Channel
 var worldq, worldtrafficq, trafficjobq amqp.Queue
 var msgs <-chan amqp.Delivery
 var dao = DAO{Server: "mongo.daws.xyz", Database: "daws", Username: "daws", Password: "daws"}
 var lastTime time.Time
-var myself worldModels.Controller
+var myself commonModels.Controller
 
 func runConsole() {
 	// setup terminal
@@ -144,7 +144,7 @@ func processMsgs() {
 	for d := range msgs {
 		bodyString := string(d.Body[:])
 		LogToConsole("Received a message: " + bodyString)
-		worldMsg := worldModels.WorldTrafficQueueMessage{}
+		worldMsg := commonModels.WorldTrafficQueueMessage{}
 		json.Unmarshal(d.Body, &worldMsg)
 		// Need to use lastTime since settings.LastTime is a string and we need to do time math
 		settings = worldMsg.WorldSettings
@@ -158,7 +158,7 @@ func processMsgs() {
 func main() {
 
 	id, _ := uuid.NewV4()
-	myself = worldModels.Controller{ID: id.String(), Ready: true, Type: "traffic", Exit: false}
+	myself = commonModels.Controller{ID: id.String(), Ready: true, Type: "traffic", Exit: false}
 
 	InitLogger()
 	connectQueues()

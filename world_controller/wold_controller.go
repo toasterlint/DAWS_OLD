@@ -19,7 +19,6 @@ import (
 	commonModels "github.com/toasterlint/DAWS/common/models"
 	. "github.com/toasterlint/DAWS/common/utils"
 	worldDAO "github.com/toasterlint/DAWS/world_controller/dao"
-	. "github.com/toasterlint/DAWS/world_controller/models"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -29,9 +28,9 @@ var worldq, worldtrafficq, worldcityq amqp.Queue
 var msgs <-chan amqp.Delivery
 var maxTriggerTime int // smaller number equals faster speed
 var runTrigger bool
-var controllers []Controller
+var controllers []commonModels.Controller
 var lastTime time.Time
-var settings Settings
+var settings commonModels.Settings
 var dao = worldDAO.DAO{Server: "mongo.daws.xyz", Database: "daws", Username: "daws", Password: "daws"}
 var commondao = commonDAO.DAO{Server: "mongo.daws.xyz", Database: "daws", Username: "daws", Password: "daws"}
 var numCities = 0
@@ -114,13 +113,13 @@ func apiStatus(w http.ResponseWriter, r *http.Request) {
 func apiTrigger(w http.ResponseWriter, r *http.Request) {
 	cityids, err := commondao.GetAllCityIDs()
 	FailOnError(err, "Failed to get city IDs")
-	msg := &WorldTrafficQueueMessage{WorldSettings: settings, Datetime: lastTime.Format("2006-01-02 15:04:05")}
+	msg := &commonModels.WorldTrafficQueueMessage{WorldSettings: settings, Datetime: lastTime}
 	triggerNext(cityids, msg)
 	LogToConsole("Manually Trigger")
 	w.Write([]byte("Manually triggered"))
 }
 
-func triggerNext(cities []commonDAO.Cityids, worldtrafficmessage *WorldTrafficQueueMessage) {
+func triggerNext(cities []commonDAO.Mongoids, worldtrafficmessage *commonModels.WorldTrafficQueueMessage) {
 	tempMsgJSON, _ := json.Marshal(worldtrafficmessage)
 	err := ch.Publish(
 		"",                 // exchange
@@ -134,7 +133,7 @@ func triggerNext(cities []commonDAO.Cityids, worldtrafficmessage *WorldTrafficQu
 		})
 	FailOnError(err, "Failed to post to World Traffic Queue")
 	for _, element := range cities {
-		tempMsg := &WorldCityQueueMessage{WorldSettings: settings, City: element.ID.Hex(), Datetime: worldtrafficmessage.Datetime}
+		tempMsg := &commonModels.WorldCityQueueMessage{WorldSettings: settings, City: element.ID.Hex(), Datetime: worldtrafficmessage.Datetime}
 		tempMsgJSON, _ := json.Marshal(tempMsg)
 		err := ch.Publish(
 			"",              // exchange
@@ -196,7 +195,7 @@ func processTrigger() {
 		}
 		cityids, err := commondao.GetAllCityIDs()
 		FailOnError(err, "Failed to get city IDs2")
-		msg := &WorldTrafficQueueMessage{WorldSettings: settings, Datetime: lastTime.Format("2006-01-02 15:04:05")}
+		msg := &commonModels.WorldTrafficQueueMessage{WorldSettings: settings, Datetime: lastTime}
 		triggerNext(cityids, msg)
 		lastTime = lastTime.Add(time.Second * 1)
 		realLastTime = time.Now()
@@ -207,7 +206,7 @@ func processMsgs() {
 	for d := range msgs {
 		bodyString := string(d.Body[:])
 		LogToConsole("Received a message: " + bodyString)
-		tempController := Controller{}
+		tempController := commonModels.Controller{}
 		json.Unmarshal(d.Body, &tempController)
 		found := false
 		var tempRemove int
@@ -304,16 +303,16 @@ func loadConfig() {
 		Logger.Println(string(sett))
 	} else {
 		LogToConsole("No settings found, creating defaults")
-		var tempSettings Settings
+		var tempSettings commonModels.Settings
 		tempSettings.CarAccidentFatalityRate = 0.0001159
 		tempSettings.ID = bson.NewObjectId()
 		tempSettings.LastTime = time.Now().Format("2006-01-02 15:04:05")
 		tempSettings.MurderRate = 0.000053
 		tempSettings.ViolentCrimeRate = 0.00381
 		tempSettings.WorldSpeed = 5000
-		var speeds = []SpeedLimit{}
-		var citySpeed = SpeedLimit{Location: "city", Value: 35}
-		var noncitySpeed = SpeedLimit{Location: "noncity", Value: 70}
+		var speeds = []commonModels.SpeedLimit{}
+		var citySpeed = commonModels.SpeedLimit{Location: "city", Value: 35}
+		var noncitySpeed = commonModels.SpeedLimit{Location: "noncity", Value: 70}
 		speeds = append(speeds, citySpeed)
 		speeds = append(speeds, noncitySpeed)
 		tempSettings.SpeedLimits = speeds
@@ -333,7 +332,7 @@ func main() {
 	// Set some initial variables
 	InitLogger()
 	loadConfig()
-	controllers = []Controller{}
+	controllers = []commonModels.Controller{}
 
 	//init rabbit
 	connectQueues()
@@ -398,7 +397,6 @@ func aWholeNewWorld() {
 	}
 	newCity.TopLeft = Point{X: randomdata.Number(5274720), Y: randomdata.Number(5274720)}
 	newCity.BottomRight = Point{X: newCity.TopLeft.X + 5280, Y: newCity.TopLeft.Y + 5280}
-	newCity.BuildingIDs = []bson.ObjectId{}
 	newCity.Established = lastTime
 	err = commondao.CreateCity(newCity)
 	FailOnError(err, "Failed to create new city")
@@ -419,10 +417,10 @@ func canWeFixIt(city commonModels.City) {
 	newBuilding.Type = commonModels.House
 	newBuilding.TopLeft = Point{X: randomdata.Number(city.TopLeft.X, city.BottomRight.X-208), Y: randomdata.Number(city.TopLeft.Y, city.BottomRight.Y-208)}
 	newBuilding.BottomRight = Point{X: newBuilding.TopLeft.X + 208, Y: newBuilding.TopLeft.Y + 208}
+	newBuilding.CityID = city.ID
 	err := commondao.CreateBuilding(newBuilding)
 	FailOnError(err, "Failed to create building")
 	LogToConsole("Created a new home, Updating City")
-	city.BuildingIDs = append(city.BuildingIDs, newBuilding.ID)
 	err = commondao.UpdateCity(city)
 	FailOnError(err, "Failed to update City")
 	justTheTwoOfUs(newBuilding)

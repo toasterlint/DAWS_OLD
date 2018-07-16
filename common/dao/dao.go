@@ -17,7 +17,7 @@ type DAO struct {
 	Password string
 }
 
-type Cityids struct {
+type Mongoids struct {
 	ID bson.ObjectId `json:"id" bson:"_id"`
 }
 
@@ -63,8 +63,8 @@ func (m *DAO) GetCitiesCount() (int, error) {
 	return citiesCount, err
 }
 
-func (m *DAO) GetAllCityIDs() ([]Cityids, error) {
-	var cityids []Cityids
+func (m *DAO) GetAllCityIDs() ([]Mongoids, error) {
+	var cityids []Mongoids
 	err := db.C(COLLECTIONCITY).Find(bson.M{}).Select(bson.M{"_id": 1}).All(&cityids)
 	Logger.Println(len(cityids))
 	return cityids, err
@@ -86,6 +86,12 @@ func (m *DAO) UpdateBuilding(building commonModels.Building) error {
 func (m *DAO) GetBuildingsCount() (int, error) {
 	buildingsCount, err := db.C(COLLECTIONBUILDING).Find(bson.M{}).Count()
 	return buildingsCount, err
+}
+
+func (m *DAO) GetAllBuildingIDs(cityid Mongoids) ([]Mongoids, error) {
+	var buildingids []Mongoids
+	err := db.C(COLLECTIONBUILDING).Find(bson.M{"cityid": cityid.ID}).Select(bson.M{"_id": 1}).All(&buildingids)
+	return buildingids, err
 }
 
 // CreatePerson Creates a city in DB
