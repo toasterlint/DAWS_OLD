@@ -11,6 +11,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/streadway/amqp"
+	commonModels "github.com/toasterlint/DAWS/common/models"
 	. "github.com/toasterlint/DAWS/common/utils"
 	. "github.com/toasterlint/DAWS/world_controller/dao"
 	. "github.com/toasterlint/DAWS/world_controller/models"
@@ -27,6 +28,9 @@ var controllers []Controller
 var lastTime time.Time
 var settings Settings
 var dao = WorldDAO{Server: "mongo.daws.xyz", Database: "daws", Username: "daws", Password: "daws"}
+var numCities = 0
+var numBuildings = 0
+var numPeople = 0
 
 func startHTTPServer() {
 	r := mux.NewRouter()
@@ -295,13 +299,16 @@ func loadConfig() {
 		speeds = append(speeds, citySpeed)
 		speeds = append(speeds, noncitySpeed)
 		tempSettings.SpeedLimits = speeds
-		tempSettings.Diseases = []Disease{}
+		tempSettings.Diseases = []commonModels.Disease{}
 		err := dao.InsertSettings(tempSettings)
 		FailOnError(err, "Failed to insert settings")
 	}
 	// Need to use lastTime since settings.LastTime is a string and we need to do time math
 	timeLayout := "2006-01-02 15:04:05"
 	lastTime, err = time.Parse(timeLayout, settings.LastTime)
+	getBuildingsCount()
+	getCitiesCount()
+	getPeopleCount()
 }
 
 func main() {
@@ -323,6 +330,11 @@ func main() {
 	// Start Console
 	go runConsole()
 
+	// Check to see if fresh world
+	if numBuildings == 0 || numCities == 0 || numPeople == 0 {
+		aWholeNewWorld()
+	}
+
 	// TEMP: Start trigger
 	go processTrigger()
 
@@ -333,10 +345,21 @@ func main() {
 	Logger.Println("done")
 }
 
-func getCities() {
-
+func getCitiesCount() {
+	numCities, _ = dao.GetCitiesCount()
+	Logger.Printf("Number of Cities: %d", numCities)
 }
 
-func getPeople() {
+func getPeopleCount() {
+	numPeople, _ = dao.GetPeopleCount()
+	Logger.Printf("Nummber of People in world: %d", numPeople)
+}
 
+func getBuildingsCount() {
+	numBuildings, _ = dao.GetBuildingsCount()
+	Logger.Printf("Nummber of Buildings in world: %d", numBuildings)
+}
+
+func aWholeNewWorld() {
+	LogToConsole("Starting a whole new world... don't you dare close your eyes!")
 }

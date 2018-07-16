@@ -1,19 +1,9 @@
 package models
 
 import (
+	commonModels "github.com/toasterlint/DAWS/common/models"
 	"gopkg.in/mgo.v2/bson"
 )
-
-// Disease types of diseases
-type Disease struct {
-	Name            string  `json:"name" bson:"name"`
-	DaysDetected    int     `json:"daysDetected" bson:"daysDetected"`
-	AvgDaysIll      int     `json:"avgDaysIll" bson:"avgDaysIll"`
-	LethalityRate   float32 `json:"lethalityRate" bson:"lethalityRate"`
-	Infectious      bool    `json:"infectious" bson:"infectious"`
-	InfectionChance float32 `json:"infectionChance" bson:"infectionChance"`
-	Severity        float32 `json:"severity" bson:"severity"`
-}
 
 // Trigger triggers for the world
 type Trigger struct {
@@ -29,15 +19,15 @@ type SpeedLimit struct {
 
 // Settings settings for the world
 type Settings struct {
-	ID                      bson.ObjectId `json:"id" bson:"_id,omitempty"`
-	ViolentCrimeRate        float32       `json:"violentCrimeRate" bson:"violentCrimeRate"`
-	MurderRate              float32       `json:"murderRate" bson:"murderRate"`
-	CarAccidentFatalityRate float32       `json:"carAccidentFatalityRate" bson:"carAccidentFatalityRate"`
-	Diseases                []Disease     `json:"diseases" bson:"diseases"`
-	WorldSpeed              int           `json:"worldSpeed" bson:"worldSpeed"`
-	LastTime                string        `json:"lastTime" bson:"lastTime"`
-	Triggers                []Trigger     `json:"triggers" bson:"triggers"`
-	SpeedLimits             []SpeedLimit  `json:"speedLimits" bson:"speedLimits"`
+	ID                      bson.ObjectId          `json:"id" bson:"_id,omitempty"`
+	ViolentCrimeRate        float32                `json:"violentCrimeRate" bson:"violentCrimeRate"`
+	MurderRate              float32                `json:"murderRate" bson:"murderRate"`
+	CarAccidentFatalityRate float32                `json:"carAccidentFatalityRate" bson:"carAccidentFatalityRate"`
+	Diseases                []commonModels.Disease `json:"diseases" bson:"diseases"`
+	WorldSpeed              int                    `json:"worldSpeed" bson:"worldSpeed"`
+	LastTime                string                 `json:"lastTime" bson:"lastTime"`
+	Triggers                []Trigger              `json:"triggers" bson:"triggers"`
+	SpeedLimits             []SpeedLimit           `json:"speedLimits" bson:"speedLimits"`
 }
 
 // WorldQueueMessage Messages sent to World Queue
@@ -59,6 +49,13 @@ type WorldCityQueueMessage struct {
 	City          string   `json:"city"`
 	Datetime      string   `json:"datetime"`
 }
+
+type ControllerType int
+
+const (
+	Traffic ControllerType = iota + 1
+	City
+)
 
 // Controller a controller
 type Controller struct {

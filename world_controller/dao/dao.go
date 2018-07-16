@@ -71,3 +71,18 @@ func (m *WorldDAO) CreateCity(city string) error {
 	err := db.C(COLLECTIONCITY).Insert(&city)
 	return err
 }
+
+func (m *WorldDAO) GetCitiesCount() (int, error) {
+	citiesCount, err := db.C(COLLECTIONCITY).Find(bson.M{}).Count()
+	return citiesCount, err
+}
+
+func (m *WorldDAO) GetBuildingsCount() (int, error) {
+	buildingsCount, err := db.C(COLLECTIONBUILDING).Find(bson.M{}).Count()
+	return buildingsCount, err
+}
+
+func (m *WorldDAO) GetPeopleCount() (int, error) {
+	peopleCount, err := db.C(COLLECTIONPEOPLE).Find(bson.M{}).Count()
+	return peopleCount, err
+}
