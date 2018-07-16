@@ -14,6 +14,7 @@ type City struct {
 	TopLeft     Point           `json:"topleft" bson:"topleft"`
 	BottomRight Point           `json:"bottomright" bson:"bottomright"`
 	BuildingIDs []bson.ObjectId `json:"buildingIDs" bson:"buildingIDs"`
+	Established time.Time       `json:"established" bson:"established"`
 }
 
 // BuildingType used to identify the type of building
@@ -60,17 +61,18 @@ type Person struct {
 	FirstName       string          `json:"firstname" bson:"firstname"`
 	LastName        string          `json:"lastname" bson:"lastname"`
 	ChildrenIDs     []bson.ObjectId `json:"childrenIDs" bson:"childrenIDs"`
-	CurrentBuilding bson.ObjectId   `json:"currentbuilding" bson:"currentbuilding"`
+	CurrentBuilding bson.ObjectId   `json:"currentbuilding" bson:"currentbuilding,omitempty"`
 	CurrentXY       Point           `json:"currentxy" bson:"currentxy"`
 	Traveling       bool            `json:"traveling" bson:"traveling"`
 	NewToBuilding   bool            `json:"newtobuilding" bson:"newtobuilding"`
-	HomeBuilding    bson.ObjectId   `json:"homebuilding" bson:"homebuilding"`
-	WorkBuilding    bson.ObjectId   `json:"workbuilding" bson:"workbuilding"`
+	HomeBuilding    bson.ObjectId   `json:"homebuilding" bson:"homebuilding,omitempty"`
+	WorkBuilding    bson.ObjectId   `json:"workbuilding" bson:"workbuilding,omitempty"`
 	Health          int             `json:"health" bson:"health"`
-	Illness         bson.ObjectId   `json:"illness" bson:"illness"`
+	Illness         bson.ObjectId   `json:"illness" bson:"illness,omitempty"`
 	Happiness       int             `json:"happiness" bson:"happiness"`
 	DeathDate       time.Time       `json:"deathdate" bson:"deathdate"`
 	CauseOfDeath    DeathType       `json:"causeofdeath" bson:"causeofdeath"`
+	Spouse          bson.ObjectId   `json:"spouse" bson:"spouse"`
 }
 
 // Disease types of diseases

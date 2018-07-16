@@ -3,6 +3,7 @@ package dao
 import (
 	"time"
 
+	commonModels "github.com/toasterlint/DAWS/common/models"
 	. "github.com/toasterlint/DAWS/common/utils"
 	worldModels "github.com/toasterlint/DAWS/world_controller/models"
 	mgo "gopkg.in/mgo.v2"
@@ -67,21 +68,46 @@ func (m *WorldDAO) InsertSettings(settings worldModels.Settings) error {
 }
 
 // CreateCity Creates a city in DB
-func (m *WorldDAO) CreateCity(city string) error {
+func (m *WorldDAO) CreateCity(city commonModels.City) error {
 	err := db.C(COLLECTIONCITY).Insert(&city)
 	return err
 }
 
+func (m *WorldDAO) UpdateCity(city commonModels.City) error {
+	err := db.C(COLLECTIONCITY).UpdateId(city.ID, &city)
+	return err
+}
+
+// GetCitiesCount get number of cities in the world
 func (m *WorldDAO) GetCitiesCount() (int, error) {
 	citiesCount, err := db.C(COLLECTIONCITY).Find(bson.M{}).Count()
 	return citiesCount, err
 }
 
+// CreateBuilding Creates a city in DB
+func (m *WorldDAO) CreateBuilding(building commonModels.Building) error {
+	err := db.C(COLLECTIONBUILDING).Insert(&building)
+	return err
+}
+
+func (m *WorldDAO) UpdateBuilding(building commonModels.Building) error {
+	err := db.C(COLLECTIONBUILDING).UpdateId(building.ID, &building)
+	return err
+}
+
+// GetBuildingsCount get number of buildings in the world
 func (m *WorldDAO) GetBuildingsCount() (int, error) {
 	buildingsCount, err := db.C(COLLECTIONBUILDING).Find(bson.M{}).Count()
 	return buildingsCount, err
 }
 
+// CreatePerson Creates a city in DB
+func (m *WorldDAO) CreatePerson(person commonModels.Person) error {
+	err := db.C(COLLECTIONPEOPLE).Insert(&person)
+	return err
+}
+
+// GetPeopleCount get number of people in the world
 func (m *WorldDAO) GetPeopleCount() (int, error) {
 	peopleCount, err := db.C(COLLECTIONPEOPLE).Find(bson.M{}).Count()
 	return peopleCount, err

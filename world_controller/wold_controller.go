@@ -3,12 +3,16 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 
+	. "image"
+
+	"github.com/Pallinder/go-randomdata"
 	"github.com/gorilla/mux"
 	"github.com/streadway/amqp"
 	commonModels "github.com/toasterlint/DAWS/common/models"
@@ -362,4 +366,115 @@ func getBuildingsCount() {
 
 func aWholeNewWorld() {
 	LogToConsole("Starting a whole new world... don't you dare close your eyes!")
+	// Create a new city somewhere random in the world that is 1 sq mile
+	newCity := commonModels.City{}
+	newCity.ID = bson.NewObjectId()
+
+	cityNameGenURL := "https://www.mithrilandmages.com/utilities/CityNamesServer.php?count=1&dataset=united_states&_=1531715721885"
+	req, err := http.NewRequest("GET", cityNameGenURL, nil)
+	FailOnError(err, "Failed on http.NewRequest")
+	webClient := &http.Client{}
+	resp, err := webClient.Do(req)
+	FailOnError(err, "Failed to get name")
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusOK {
+		bodyBytes, err2 := ioutil.ReadAll(resp.Body)
+		FailOnError(err2, "Failed to read html body")
+		newCity.Name = string(bodyBytes)
+	}
+	newCity.TopLeft = Point{X: randomdata.Number(5274720), Y: randomdata.Number(5274720)}
+	newCity.BottomRight = Point{X: newCity.TopLeft.X + 5280, Y: newCity.TopLeft.Y + 5280}
+	newCity.BuildingIDs = []bson.ObjectId{}
+	newCity.Established = lastTime
+	err = dao.CreateCity(newCity)
+	FailOnError(err, "Failed to create new city")
+	Logger.Printf("Created City: %s", newCity.Name)
+
+	canWeFixIt(newCity)
+
+}
+
+func canWeFixIt(city commonModels.City) {
+	LogToConsole("Yes we can!")
+	newBuilding := commonModels.Building{}
+	newBuilding.ID = bson.NewObjectId()
+	newBuilding.BuildDate = lastTime
+	newBuilding.Floors = 1
+	newBuilding.MaxOccupancy = 20
+	newBuilding.Name = "Home"
+	newBuilding.Type = commonModels.House
+	newBuilding.TopLeft = Point{X: randomdata.Number(city.TopLeft.X, city.BottomRight.X-208), Y: randomdata.Number(city.TopLeft.Y, city.BottomRight.Y-208)}
+	newBuilding.BottomRight = Point{X: newBuilding.TopLeft.X + 208, Y: newBuilding.TopLeft.Y + 208}
+	err := dao.CreateBuilding(newBuilding)
+	FailOnError(err, "Failed to create building")
+	LogToConsole("Created a new home, Updating City")
+	city.BuildingIDs = append(city.BuildingIDs, newBuilding.ID)
+	err = dao.UpdateCity(city)
+	FailOnError(err, "Failed to update City")
+	justTheTwoOfUs(newBuilding)
+}
+
+func justTheTwoOfUs(building commonModels.Building) {
+	LogToConsole("You and I")
+	male := commonModels.Person{}
+	female := commonModels.Person{}
+	boyNameGenURL := "http://names.drycodes.com/1?nameOptions=boy_names"
+	girlNameGenURL := "http://names.drycodes.com/1?nameOptions=girl_names"
+	reqBoy, err := http.NewRequest("GET", boyNameGenURL, nil)
+	FailOnError(err, "Error with Boy Name URL")
+	reqGirl, err := http.NewRequest("GET", girlNameGenURL, nil)
+	FailOnError(err, "Error with Girl Name URL")
+	webClient := &http.Client{}
+	respBoy, err := webClient.Do(reqBoy)
+	FailOnError(err, "Error with Boy Name Request")
+	respGirl, err := webClient.Do(reqGirl)
+	FailOnError(err, "Error with Girl Name Request")
+	defer respBoy.Body.Close()
+	defer respGirl.Body.Close()
+	if respBoy.StatusCode == http.StatusOK && respGirl.StatusCode == http.StatusOK {
+		boybodyBytes, err := ioutil.ReadAll(respBoy.Body)
+		FailOnError(err, "Failed to read body")
+		mname := string(boybodyBytes)
+		mname = strings.TrimPrefix(mname, "[\"")
+		mname = strings.TrimSuffix(mname, "\"]")
+		male.FirstName = strings.Split(mname, "_")[0]
+		male.LastName = strings.Split(mname, "_")[1]
+		girlbodyBytes, err := ioutil.ReadAll(respGirl.Body)
+		FailOnError(err, "Failed to read body")
+		fname := string(girlbodyBytes)
+		fname = strings.TrimPrefix(fname, "[\"")
+		fname = strings.TrimSuffix(fname, "\"]")
+		female.FirstName = strings.Split(fname, "_")[0]
+		female.LastName = male.LastName
+	}
+	male.Birthdate = lastTime.AddDate(-18, 0, 0)
+	female.Birthdate = male.Birthdate
+	male.ChildrenIDs = []bson.ObjectId{}
+	female.ChildrenIDs = male.ChildrenIDs
+	male.CurrentBuilding = building.ID
+	female.CurrentBuilding = male.CurrentBuilding
+	male.CurrentXY = building.TopLeft
+	female.CurrentXY = male.CurrentXY
+	male.Happiness = 100
+	female.Happiness = 100
+	male.Health = 100
+	female.Health = 100
+	male.HomeBuilding = male.CurrentBuilding
+	female.HomeBuilding = male.HomeBuilding
+	male.ID = bson.NewObjectId()
+	female.ID = bson.NewObjectId()
+	male.NewToBuilding = false
+	female.NewToBuilding = false
+	male.Traveling = false
+	female.Traveling = false
+	male.WorkBuilding = male.HomeBuilding
+	female.WorkBuilding = female.HomeBuilding
+	male.Spouse = female.ID
+	female.Spouse = male.ID
+	errM := dao.CreatePerson(male)
+	FailOnError(errM, "Failed to create male")
+	errF := dao.CreatePerson(female)
+	FailOnError(errF, "Failed to create female")
+
+	Logger.Printf("People Names: %s %s, %s %s", male.FirstName, male.LastName, female.FirstName, female.LastName)
 }
