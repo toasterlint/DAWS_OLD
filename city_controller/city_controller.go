@@ -36,13 +36,11 @@ ReadCommand:
 	switch text {
 	case "exit":
 		Logger.Print("Purging queues")
-		_, err := ch.QueuePurge(cityjobq.Name, false)
-		FailOnError(err, "Failed to purge World City Queue")
 		LogToConsole("Notifying World Controller of exit")
 		myself.Exit = true
 		myself.Ready = false
 		tempMsgJSON, _ := json.Marshal(myself)
-		err = ch.Publish(
+		err := ch.Publish(
 			"",
 			worldq.Name,
 			false,
@@ -89,19 +87,6 @@ func connectQueues() {
 	)
 	FailOnError(err, "Failed to declare queue")
 
-	tempMsgJSON, _ := json.Marshal(myself)
-	err = ch.Publish(
-		"",
-		worldq.Name,
-		false,
-		false,
-		amqp.Publishing{
-			DeliveryMode: amqp.Persistent,
-			ContentType:  "application/json",
-			Body:         []byte(tempMsgJSON),
-		})
-	FailOnError(err, "Failed to notify World Controller of my status")
-
 	worldcityq, err = ch.QueueDeclare(
 		"world_city_queue", //name
 		true,               // durable
@@ -139,6 +124,23 @@ func connectQueues() {
 		nil,             // args
 	)
 	FailOnError(err, "Failed to register a consumer")
+
+	publishReady()
+}
+
+func publishReady() {
+	tempMsgJSON, _ := json.Marshal(myself)
+	err := ch.Publish(
+		"",
+		worldq.Name,
+		false,
+		false,
+		amqp.Publishing{
+			DeliveryMode: amqp.Persistent,
+			ContentType:  "application/json",
+			Body:         []byte(tempMsgJSON),
+		})
+	FailOnError(err, "Failed to notify World Controller of my status")
 }
 
 func processMsgs() {
@@ -159,8 +161,11 @@ func processMsgs() {
 				go publishToWorkQueue(buildingIDs[i].ID)
 			}
 		}
-
 		d.Ack(false)
+		qsize, _ := ch.QueueInspect(cityjobq.Name)
+		if qsize.Messages == 0 {
+			publishReady()
+		}
 	}
 }
 
