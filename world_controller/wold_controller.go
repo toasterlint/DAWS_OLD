@@ -26,7 +26,6 @@ var conn *amqp.Connection
 var ch *amqp.Channel
 var worldq, worldtrafficq, worldcityq, cityjobq, trafficjobq amqp.Queue
 var msgs <-chan amqp.Delivery
-var maxTriggerTime int // smaller number equals faster speed
 var runTrigger bool
 var controllers []commonModels.Controller
 var settings commonModels.Settings
@@ -164,7 +163,7 @@ func triggerNext(cities []commonDAO.Mongoid, worldtrafficmessage *commonModels.W
 				ContentType:  "application/json",
 				Body:         []byte(tempMsgJSON),
 			})
-		FailOnError(err, "Failed to post to World Traffic Queue")
+		FailOnError(err, "Failed to post to World City Queue")
 	}
 }
 
@@ -205,15 +204,14 @@ func processTrigger() {
 		// make sure we don't go over max speed limit
 		t := time.Now()
 		dur := t.Sub(realLastTime)
-		LogToConsole("Trigger Ding!")
 		for i := range controllers {
 			controllers[i].Ready = false
 		}
-		if dur > time.Duration(maxTriggerTime)*time.Millisecond {
+		if dur > time.Duration(settings.WorldSpeed)*time.Millisecond {
 			LogToConsole("Warning: world processing too slow, last duration was - " + dur.String())
 		}
 		cityids, err := commondao.GetAllCityIDs()
-		FailOnError(err, "Failed to get city IDs2")
+		FailOnError(err, "Failed to get city IDs")
 		msg := &commonModels.WorldTrafficQueueMessage{WorldSettings: settings}
 		triggerNext(cityids, msg)
 		settings.LastTime = settings.LastTime.Add(time.Second * 1)
@@ -223,8 +221,6 @@ func processTrigger() {
 
 func processMsgs() {
 	for d := range msgs {
-		bodyString := string(d.Body[:])
-		LogToConsole("Received a message: " + bodyString)
 		tempController := commonModels.Controller{}
 		json.Unmarshal(d.Body, &tempController)
 		found := false
@@ -245,7 +241,7 @@ func processMsgs() {
 		if tempController.Exit == true {
 			controllers = append(controllers[:tempRemove], controllers[tempRemove+1:]...)
 		}
-		LogToConsole("Done")
+		//LogToConsole("Done")
 		d.Ack(false)
 	}
 }

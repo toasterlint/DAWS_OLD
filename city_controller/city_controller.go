@@ -25,6 +25,7 @@ var msgs <-chan amqp.Delivery
 var dao = DAO{Server: "mongo.daws.xyz", Database: "daws", Username: "daws", Password: "daws"}
 var lastTime time.Time
 var myself commonModels.Controller
+var checkQueueRunning bool
 
 func runConsole() {
 	// setup terminal
@@ -157,13 +158,25 @@ func processMsgs() {
 		if bson.IsObjectIdHex(worldMsg.City) {
 			buildingIDs, err := dao.GetAllBuildingIDs(Mongoid{ID: bson.ObjectIdHex(worldMsg.City)})
 			FailOnError(err, "Failed to get Building IDs for city")
+			Logger.Printf("Number of buildings found: %d", len(buildingIDs))
 			for i := range buildingIDs {
 				go publishToWorkQueue(buildingIDs[i].ID)
 			}
 		}
 		d.Ack(false)
+		if checkQueueRunning == false {
+			checkQueueRunning = true
+			go checkQueue()
+		}
+	}
+}
+
+func checkQueue() {
+	for checkQueueRunning {
+		time.Sleep(time.Millisecond * 10)
 		qsize, _ := ch.QueueInspect(cityjobq.Name)
 		if qsize.Messages == 0 {
+			checkQueueRunning = false
 			publishReady()
 		}
 	}
@@ -189,6 +202,7 @@ func main() {
 
 	id, _ := uuid.NewV4()
 	myself = commonModels.Controller{ID: id.String(), Ready: true, Type: "city", Exit: false}
+	checkQueueRunning = false
 
 	InitLogger()
 	dao.Connect()

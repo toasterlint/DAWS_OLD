@@ -33,24 +33,6 @@ ReadCommand:
 	text = strings.Trim(text, "\n")
 	switch text {
 	case "exit":
-		Logger.Print("Purging queues")
-		_, err := ch.QueuePurge(cityjobq.Name, false)
-		FailOnError(err, "Failed to purge World City Queue")
-		LogToConsole("Notifying World Controller of exit")
-		myself.Exit = true
-		myself.Ready = false
-		tempMsgJSON, _ := json.Marshal(myself)
-		err = ch.Publish(
-			"",
-			worldq.Name,
-			false,
-			false,
-			amqp.Publishing{
-				DeliveryMode: amqp.Persistent,
-				ContentType:  "application/json",
-				Body:         []byte(tempMsgJSON),
-			})
-		FailOnError(err, "Failed to notify World Controller of my status")
 		Logger.Println("Exiting...")
 		os.Exit(0)
 	case "status":
@@ -115,10 +97,8 @@ func processMsgs() {
 		json.Unmarshal(d.Body, &worldMsg)
 		// Need to use lastTime since settings.LastTime is a string and we need to do time math
 		settings = worldMsg.WorldSettings
-		timeLayout := "2006-01-02 15:04:05"
-		lastTime, err = time.Parse(timeLayout, settings.LastTime)
 		FailOnError(err, "issue converting times")
-		time.Sleep(time.Second * 5)
+		time.Sleep(time.Millisecond * 50)
 		d.Ack(false)
 	}
 }

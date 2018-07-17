@@ -24,6 +24,7 @@ var msgs <-chan amqp.Delivery
 var dao = DAO{Server: "mongo.daws.xyz", Database: "daws", Username: "daws", Password: "daws"}
 var lastTime time.Time
 var myself commonModels.Controller
+var checkQueueRunning bool
 
 func runConsole() {
 	// setup terminal
@@ -157,11 +158,26 @@ func processMsgs() {
 
 		if len(travelers) > 0 {
 			for i := range travelers {
-				publishToWorkQueue(travelers[i].ID)
+				go publishToWorkQueue(travelers[i].ID)
 			}
 		}
 
 		d.Ack(false)
+		if checkQueueRunning == false {
+			checkQueueRunning = true
+			go checkQueue()
+		}
+	}
+}
+
+func checkQueue() {
+	for checkQueueRunning {
+		time.Sleep(time.Millisecond * 10)
+		qsize, _ := ch.QueueInspect(trafficjobq.Name)
+		if qsize.Messages == 0 {
+			checkQueueRunning = false
+			publishReady()
+		}
 	}
 }
 
@@ -185,8 +201,10 @@ func main() {
 
 	id, _ := uuid.NewV4()
 	myself = commonModels.Controller{ID: id.String(), Ready: true, Type: "traffic", Exit: false}
+	checkQueueRunning = false
 
 	InitLogger()
+	dao.Connect()
 	connectQueues()
 	defer conn.Close()
 	defer ch.Close()

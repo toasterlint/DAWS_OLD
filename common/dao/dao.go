@@ -66,7 +66,6 @@ func (m *DAO) GetCitiesCount() (int, error) {
 func (m *DAO) GetAllCityIDs() ([]Mongoid, error) {
 	var cityids []Mongoid
 	err := db.C(COLLECTIONCITY).Find(bson.M{}).Select(bson.M{"_id": 1}).All(&cityids)
-	Logger.Println(len(cityids))
 	return cityids, err
 }
 
