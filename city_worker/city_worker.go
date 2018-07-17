@@ -91,14 +91,14 @@ func connectQueues() {
 func processMsgs() {
 	var err error
 	for d := range msgs {
-		bodyString := string(d.Body[:])
-		LogToConsole("Received a message: " + bodyString)
+		//bodyString := string(d.Body[:])
+		//LogToConsole("Received a message: " + bodyString)
 		worldMsg := commonModels.WorldCityQueueMessage{}
 		json.Unmarshal(d.Body, &worldMsg)
 		// Need to use lastTime since settings.LastTime is a string and we need to do time math
 		settings = worldMsg.WorldSettings
 		FailOnError(err, "issue converting times")
-		time.Sleep(time.Millisecond * 50)
+		time.Sleep(time.Millisecond * 1)
 		d.Ack(false)
 	}
 }

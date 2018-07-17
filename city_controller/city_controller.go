@@ -146,8 +146,8 @@ func publishReady() {
 
 func processMsgs() {
 	for d := range msgs {
-		bodyString := string(d.Body[:])
-		LogToConsole("Received a message: " + bodyString)
+		//bodyString := string(d.Body[:])
+		//LogToConsole("Received a message: " + bodyString)
 		worldMsg := commonModels.WorldCityQueueMessage{}
 		json.Unmarshal(d.Body, &worldMsg)
 		// Need to use lastTime since settings.LastTime is a string and we need to do time math
@@ -158,7 +158,7 @@ func processMsgs() {
 		if bson.IsObjectIdHex(worldMsg.City) {
 			buildingIDs, err := dao.GetAllBuildingIDs(Mongoid{ID: bson.ObjectIdHex(worldMsg.City)})
 			FailOnError(err, "Failed to get Building IDs for city")
-			Logger.Printf("Number of buildings found: %d", len(buildingIDs))
+			//Logger.Printf("Number of buildings found: %d", len(buildingIDs))
 			for i := range buildingIDs {
 				go publishToWorkQueue(buildingIDs[i].ID)
 			}
@@ -173,7 +173,7 @@ func processMsgs() {
 
 func checkQueue() {
 	for checkQueueRunning {
-		time.Sleep(time.Millisecond * 10)
+		time.Sleep(time.Millisecond * 1)
 		qsize, _ := ch.QueueInspect(cityjobq.Name)
 		if qsize.Messages == 0 {
 			checkQueueRunning = false

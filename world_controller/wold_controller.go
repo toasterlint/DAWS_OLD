@@ -34,6 +34,7 @@ var commondao = commonDAO.DAO{Server: "mongo.daws.xyz", Database: "daws", Userna
 var numCities = 0
 var numBuildings = 0
 var numPeople = 0
+var looper = 0
 
 func startHTTPServer() {
 	r := mux.NewRouter()
@@ -169,7 +170,9 @@ func triggerNext(cities []commonDAO.Mongoid, worldtrafficmessage *commonModels.W
 
 func processTrigger() {
 	realLastTime := time.Now()
+	go printStatus()
 	for runTrigger {
+		time.Sleep(time.Microsecond * 500)
 		// first check if all controllers are ready (and that we have any)
 		if len(controllers) == 0 {
 			LogToConsole("No controllers")
@@ -338,6 +341,31 @@ func loadConfig() {
 	getBuildingsCount()
 	getCitiesCount()
 	getPeopleCount()
+}
+
+func printStatus() {
+	for runTrigger {
+		if runTrigger {
+			Logger.Println("Running...")
+		} else {
+			Logger.Println("Stopped...")
+		}
+
+		tcontrollers := 0
+		ccontrollers := 0
+		for i := range controllers {
+			if controllers[i].Type == "traffic" {
+				tcontrollers++
+			} else {
+				ccontrollers++
+			}
+		}
+		Logger.Printf("Traffic Controllers: %d", tcontrollers)
+		Logger.Printf("City Controllers: %d", ccontrollers)
+		Logger.Printf("Current Real Time: %s", time.Now().Format("2006-01-02 15:04:05"))
+		Logger.Printf("Current Simulated Time: %s", settings.LastTime.Format("2006-01-02 15:04:05"))
+		time.Sleep(time.Second * 10)
+	}
 }
 
 func main() {

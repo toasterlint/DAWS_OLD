@@ -146,8 +146,8 @@ func publishReady() {
 
 func processMsgs() {
 	for d := range msgs {
-		bodyString := string(d.Body[:])
-		LogToConsole("Received a message: " + bodyString)
+		//bodyString := string(d.Body[:])
+		//LogToConsole("Received a message: " + bodyString)
 		worldMsg := commonModels.WorldTrafficQueueMessage{}
 		json.Unmarshal(d.Body, &worldMsg)
 		// Need to use lastTime since settings.LastTime is a string and we need to do time math
