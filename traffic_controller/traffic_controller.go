@@ -13,6 +13,7 @@ import (
 	. "github.com/toasterlint/DAWS/common/dao"
 	commonModels "github.com/toasterlint/DAWS/common/models"
 	. "github.com/toasterlint/DAWS/common/utils"
+	"gopkg.in/mgo.v2/bson"
 )
 
 var settings commonModels.Settings
@@ -87,19 +88,6 @@ func connectQueues() {
 	)
 	FailOnError(err, "Failed to declare queue")
 
-	tempMsgJSON, _ := json.Marshal(myself)
-	err = ch.Publish(
-		"",
-		worldq.Name,
-		false,
-		false,
-		amqp.Publishing{
-			DeliveryMode: amqp.Persistent,
-			ContentType:  "application/json",
-			Body:         []byte(tempMsgJSON),
-		})
-	FailOnError(err, "Failed to notify World Controller of my status")
-
 	worldtrafficq, err = ch.QueueDeclare(
 		"world_traffic_queue", //name
 		true,  // durable
@@ -137,6 +125,22 @@ func connectQueues() {
 		nil,                // args
 	)
 	FailOnError(err, "Failed to register a consumer")
+	publishReady()
+}
+
+func publishReady() {
+	tempMsgJSON, _ := json.Marshal(myself)
+	err := ch.Publish(
+		"",
+		worldq.Name,
+		false,
+		false,
+		amqp.Publishing{
+			DeliveryMode: amqp.Persistent,
+			ContentType:  "application/json",
+			Body:         []byte(tempMsgJSON),
+		})
+	FailOnError(err, "Failed to notify World Controller of my status")
 }
 
 func processMsgs() {
@@ -147,8 +151,34 @@ func processMsgs() {
 		json.Unmarshal(d.Body, &worldMsg)
 		// Need to use lastTime since settings.LastTime is a string and we need to do time math
 		settings = worldMsg.WorldSettings
+
+		travelers, err := dao.GetAllTravelers()
+		FailOnError(err, "Failed to retreive travlers")
+
+		if len(travelers) > 0 {
+			for i := range travelers {
+				publishToWorkQueue(travelers[i].ID)
+			}
+		}
+
 		d.Ack(false)
 	}
+}
+
+func publishToWorkQueue(traveler bson.ObjectId) {
+	job := commonModels.TrafficWorkerQueueMessage{WorldSettings: settings, PersonID: traveler}
+	msg, _ := json.Marshal(job)
+	err := ch.Publish(
+		"",               // exchange
+		trafficjobq.Name, // routing key
+		false,            // mandatory
+		false,
+		amqp.Publishing{
+			DeliveryMode: amqp.Persistent,
+			ContentType:  "application/json",
+			Body:         []byte(msg),
+		})
+	FailOnError(err, "Failed to publish building to job queue")
 }
 
 func main() {

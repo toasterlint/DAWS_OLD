@@ -169,7 +169,9 @@ func processMsgs() {
 	}
 }
 
-func publishToWorkQueue(bson.ObjectId) {
+func publishToWorkQueue(building bson.ObjectId) {
+	job := commonModels.CityWorkerQueueMessage{WorldSettings: settings, BuildingID: building}
+	msg, _ := json.Marshal(job)
 	err := ch.Publish(
 		"",            // exchange
 		cityjobq.Name, // routing key
@@ -178,7 +180,7 @@ func publishToWorkQueue(bson.ObjectId) {
 		amqp.Publishing{
 			DeliveryMode: amqp.Persistent,
 			ContentType:  "application/json",
-			Body:         []byte(""),
+			Body:         []byte(msg),
 		})
 	FailOnError(err, "Failed to publish building to job queue")
 }

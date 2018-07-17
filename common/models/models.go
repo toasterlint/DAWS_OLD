@@ -51,8 +51,13 @@ type WorldCityQueueMessage struct {
 }
 
 type CityWorkerQueueMessage struct {
-	WorldSettings Settings `json:"worldSettings"`
-	BuildingID    string   `json:"buildingid"`
+	WorldSettings Settings      `json:"worldSettings"`
+	BuildingID    bson.ObjectId `json:"buildingid"`
+}
+
+type TrafficWorkerQueueMessage struct {
+	WorldSettings Settings      `json:"worldSettings"`
+	PersonID      bson.ObjectId `json:"personid"`
 }
 
 type ControllerType int

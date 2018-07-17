@@ -105,3 +105,10 @@ func (m *DAO) GetPeopleCount() (int, error) {
 	peopleCount, err := db.C(COLLECTIONPEOPLE).Find(bson.M{}).Count()
 	return peopleCount, err
 }
+
+// GetAllTravelers return peopel who are traveling
+func (m *DAO) GetAllTravelers() ([]Mongoid, error) {
+	var peopleids []Mongoid
+	err := db.C(COLLECTIONPEOPLE).Find(bson.M{"traveling": true}).Select(bson.M{"_id": 1}).All(&peopleids)
+	return peopleids, err
+}
